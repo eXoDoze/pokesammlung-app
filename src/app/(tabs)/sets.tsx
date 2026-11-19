@@ -1,34 +1,47 @@
+import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, SectionList, View } from "react-native";
-import { Chip, Empty, Field, Panel, Row, Screen, Sub, Txt } from "../../components/ui";
+import { FlatList, Pressable, Text, View, useWindowDimensions } from "react-native";
+import { Chip, Dropdown, Empty, Field, Row, Screen } from "../../components/ui";
 import { useApp } from "../../lib/session";
 import { supabase } from "../../lib/supabase";
-import { useTheme } from "../../lib/theme";
+import { hueFor, useTheme } from "../../lib/theme";
 
-type SetRow = { id: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko: string | null; name_zh: string | null; series: string | null; region: string; release_date: string | null; card_count: number | null };
-type Section = { title: string; region: string; newest: string; data: SetRow[]; open: boolean; sets: number; withMine: number };
+type SetRow = { id: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko: string | null; name_zh: string | null; series: string | null; region: string; release_date: string | null; card_count: number | null; logo_url?: string | null; cover_url?: string | null };
 
-const FLAG: Record<string, string> = { japan: "🇯🇵 ", korea: "🇰🇷 ", china: "🇨🇳 ", taiwan: "🇹🇼 " };
+const REGIONS = [
+  { value: "all", label: "Alle Sprachen" },
+  { value: "international", label: "🌍 International (EN/DE)" },
+  { value: "japan", label: "🇯🇵 Japanisch" },
+  { value: "korea", label: "🇰🇷 Koreanisch" },
+  { value: "china", label: "🇨🇳 Chinesisch (vereinfacht)" },
+  { value: "taiwan", label: "🇹🇼 Chinesisch (traditionell)" },
+];
+const COLS = 2;
+const GAP = 12;
 const setTitle = (s: SetRow) => s.name_de ?? s.name_en ?? s.name_ja ?? s.name_zh ?? s.name_ko ?? s.id;
 
 export default function Sets() {
   const router = useRouter();
   const t = useTheme();
   const { active } = useApp();
+  const { width } = useWindowDimensions();
+  const inner = Math.min(width, 760) - 32;
+  const tileW = Math.floor((inner - GAP * (COLS - 1)) / COLS);
+
   const [sets, setSets] = useState<SetRow[]>([]);
-  const [mine, setMine] = useState<Map<string, number>>(new Map()); // set_id -> verschiedene Karten im Besitz
+  const [mine, setMine] = useState<Map<string, number>>(new Map());
   const [q, setQ] = useState("");
-  const [region, setRegion] = useState<"all" | "international" | "japan" | "korea" | "china" | "taiwan">("all");
+  const [region, setRegion] = useState("all");
+  const [series, setSeries] = useState("all");
   const [onlyMine, setOnlyMine] = useState(false);
-  const [openSeries, setOpenSeries] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(true);
 
   useEffect(() => {
     (async () => {
       const all: SetRow[] = [];
       for (let from = 0; ; from += 1000) {
-        const { data } = await supabase.from("sets").select("id,name_en,name_de,name_ja,name_ko,name_zh,series,region,release_date,card_count")
+        const { data } = await supabase.from("sets").select("*")
           .order("release_date", { ascending: false, nullsFirst: false }).range(from, from + 999);
         all.push(...((data ?? []) as SetRow[]));
         if (!data || data.length < 1000) break;
@@ -37,7 +50,6 @@ export default function Sets() {
     })();
   }, []);
 
-  // Fortschritt: je Set die Zahl verschiedener Karten in der aktiven Sammlung
   useFocusEffect(useCallback(() => {
     if (!active) { setMine(new Map()); return; }
     (async () => {
@@ -56,68 +68,72 @@ export default function Sets() {
     })();
   }, [active]));
 
-  const searching = q.trim().length > 0;
-  const sections: Section[] = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    const filtered = sets.filter((x) =>
-      (region === "all" || x.region === region) && (!onlyMine || mine.has(x.id)) &&
-      (!s || [x.name_en, x.name_de, x.name_ja, x.name_ko, x.name_zh, x.series, x.id].some((n) => n?.toLowerCase().includes(s))));
-    const by = new Map<string, SetRow[]>();
-    for (const x of filtered) {
-      const key = `${FLAG[x.region] ?? ""}${x.series ?? (x.region === "international" ? "Weitere" : "Sonstige")}`;
-      if (!by.has(key)) by.set(key, []);
-      by.get(key)!.push(x);
-    }
-    return [...by].map(([title, data]) => ({
-      title, data, region: data[0].region, newest: data[0].release_date ?? "",
-      open: searching || onlyMine || openSeries.has(title), sets: data.length, withMine: data.filter((d) => mine.has(d.id)).length,
-    })).sort((a, b) => b.newest.localeCompare(a.newest));
-  }, [sets, q, region, onlyMine, mine, openSeries, searching]);
+  const byRegion = useMemo(() => sets.filter((x) => region === "all" || x.region === region), [sets, region]);
+  const seriesOptions = useMemo(() => {
+    const c = new Map<string, number>();
+    for (const x of byRegion) { const k = x.series ?? "Sonstige"; c.set(k, (c.get(k) ?? 0) + 1); }
+    return [{ value: "all", label: "Alle Serien", sub: String(byRegion.length) },
+      ...[...c].map(([k, n]) => ({ value: k, label: k, sub: String(n) }))];
+  }, [byRegion]);
+  useEffect(() => { if (series !== "all" && !seriesOptions.some((o) => o.value === series)) setSeries("all"); }, [seriesOptions, series]);
 
-  const toggle = (title: string) => setOpenSeries((cur) => { const n = new Set(cur); n.has(title) ? n.delete(title) : n.add(title); return n; });
+  const list = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return byRegion.filter((x) =>
+      (series === "all" || (x.series ?? "Sonstige") === series) && (!onlyMine || mine.has(x.id)) &&
+      (!s || [x.name_en, x.name_de, x.name_ja, x.name_ko, x.name_zh, x.series, x.id].some((n) => n?.toLowerCase().includes(s))));
+  }, [byRegion, series, onlyMine, mine, q]);
   const total = sets.filter((x) => mine.has(x.id)).length;
 
   return (
     <Screen>
-      <View style={{ padding: 16, paddingBottom: 0 }}>
-        <Field label="Set suchen" value={q} onChangeText={setQ} placeholder="z. B. Basis-Set, Evolutions, 151" />
+      <View style={{ padding: 16, paddingBottom: 8, maxWidth: 760, width: "100%", alignSelf: "center" }}>
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <Dropdown label="Sprache" value={region} options={REGIONS} onChange={setRegion} />
+          <Dropdown label="Serie" value={series} options={seriesOptions} onChange={setSeries} />
+        </View>
+        <View style={{ marginTop: 10 }}>
+          <Field label="" value={q} onChangeText={setQ} placeholder="Set suchen, z. B. 151, Evolutions, Gem Pack" />
+        </View>
         <Row>
-          <Chip label="Alle" on={region === "all"} onPress={() => setRegion("all")} />
-          <Chip label="International" on={region === "international"} onPress={() => setRegion("international")} />
-          <Chip label="Japan" on={region === "japan"} onPress={() => setRegion("japan")} />
-          <Chip label="Korea" on={region === "korea"} onPress={() => setRegion("korea")} />
-          <Chip label="China" on={region === "china"} onPress={() => setRegion("china")} />
-          <Chip label="Taiwan" on={region === "taiwan"} onPress={() => setRegion("taiwan")} />
           <Chip label={`Nur Sets mit meinen Karten${total ? ` (${total})` : ""}`} on={onlyMine} onPress={() => setOnlyMine(!onlyMine)} />
+          <Text style={{ color: t.sub, fontSize: 12, alignSelf: "center", marginLeft: 6, marginBottom: 6 }}>{list.length} Sets</Text>
         </Row>
       </View>
-      <SectionList sections={sections} keyExtractor={(s) => s.id} stickySectionHeadersEnabled={false}
-        contentContainerStyle={{ padding: 16, paddingTop: 4 }}
+      <FlatList data={list} key={COLS} numColumns={COLS} keyExtractor={(s) => s.id}
+        columnWrapperStyle={{ gap: GAP, marginBottom: GAP, alignSelf: "center", width: inner }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+        initialNumToRender={12} windowSize={7}
         ListEmptyComponent={<Empty text={busy ? "Lade Sets …" : onlyMine ? "Noch keine Karten in dieser Sammlung." : "Keine Sets gefunden."} />}
-        renderSectionHeader={({ section }) => (
-          <Pressable onPress={() => toggle(section.title)} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10, marginTop: 6 }}>
-            <Txt bold style={{ flex: 1 }}>{section.title}</Txt>
-            <Sub>{section.withMine ? `${section.withMine}/` : ""}{section.sets} Sets  {section.open ? "▾" : "▸"}</Sub>
-          </Pressable>
-        )}
-        renderItem={({ item: s, section }) => {
-          if (!section.open) return null;
+        renderItem={({ item: s }) => {
           const have = mine.get(s.id) ?? 0;
           const pct = s.card_count ? Math.min(1, have / s.card_count) : 0;
+          const img = s.logo_url ?? s.cover_url ?? null;
+          const code = s.id.includes(":") ? s.id.split(":")[1] : s.id;
+          const hue = hueFor(s.id);
           return (
-            <Pressable onPress={() => router.push(`/set/${encodeURIComponent(s.id)}`)} style={{ marginBottom: 8 }}>
-              <Panel>
-                <Txt bold>{setTitle(s)}</Txt>
-                <Sub>{[s.name_de && s.name_en && s.name_de !== s.name_en ? s.name_en : null, s.release_date?.slice(0, 4), s.card_count ? `${s.card_count} Karten` : null].filter(Boolean).join(" · ")}</Sub>
-                {have > 0 && (
-                  <View style={{ marginTop: 8 }}>
-                    <View style={{ height: 5, backgroundColor: t.chip, borderRadius: 3 }}>
-                      <View style={{ height: 5, width: `${pct * 100}%`, backgroundColor: t.accent, borderRadius: 3 }} />
+            <Pressable onPress={() => router.push(`/set/${encodeURIComponent(s.id)}`)} style={{ width: tileW }}>
+              <View style={{ backgroundColor: t.card, borderRadius: 18, overflow: "hidden", borderColor: have > 0 ? t.accent : t.line, borderWidth: have > 0 ? 1.5 : 1 }}>
+                <View style={{ height: tileW * 0.72, alignItems: "center", justifyContent: "center", backgroundColor: `hsl(${hue}, 45%, 19%)` }}>
+                  {img
+                    ? <Image source={{ uri: img }} style={{ width: "84%", height: "84%" }} contentFit="contain" />
+                    : <Text style={{ color: `hsl(${hue}, 85%, 82%)`, fontSize: 24, fontWeight: "800", textAlign: "center", paddingHorizontal: 8 }} numberOfLines={2}>{code}</Text>}
+                  {have > 0 && (
+                    <View style={{ position: "absolute", top: 8, right: 8, backgroundColor: t.accent, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ color: t.accentText, fontSize: 11, fontWeight: "700" }}>{have}{s.card_count ? `/${s.card_count}` : ""}</Text>
                     </View>
-                    <Sub style={{ marginTop: 4 }}>{have}{s.card_count ? ` / ${s.card_count}` : ""} Karten</Sub>
+                  )}
+                </View>
+                <View style={{ padding: 10, minHeight: 64 }}>
+                  <Text numberOfLines={2} style={{ color: t.text, fontSize: 14, fontWeight: "700" }}>{setTitle(s)}</Text>
+                  <Text style={{ color: t.sub, fontSize: 12, marginTop: 3 }}>{[s.release_date?.slice(0, 4), s.card_count ? `${s.card_count} Karten` : null].filter(Boolean).join(" · ")}</Text>
+                </View>
+                {have > 0 && (
+                  <View style={{ height: 4, backgroundColor: t.chip }}>
+                    <View style={{ height: 4, width: `${pct * 100}%`, backgroundColor: t.accent2 }} />
                   </View>
                 )}
-              </Panel>
+              </View>
             </Pressable>
           );
         }}

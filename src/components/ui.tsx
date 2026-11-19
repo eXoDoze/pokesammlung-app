@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import React from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from "react-native";
+import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from "react-native";
 import { useTheme } from "../lib/theme";
 
 export function Screen({ children }: { children: React.ReactNode }) {
@@ -67,4 +67,37 @@ export function Thumb({ uri, w = 48 }: { uri?: string | null; w?: number }) {
 }
 export function Empty({ text }: { text: string }) {
   return <Sub style={{ textAlign: "center", marginVertical: 24 }}>{text}</Sub>;
+}
+
+export type Option = { value: string; label: string; sub?: string };
+// Auswahlfeld mit aufklappbarer Liste (Dropdown)
+export function Dropdown({ label, value, options, onChange, flex }: { label: string; value: string; options: Option[]; onChange: (v: string) => void; flex?: number }) {
+  const t = useTheme();
+  const [open, setOpen] = React.useState(false);
+  const cur = options.find((o) => o.value === value);
+  return (
+    <View style={{ flex: flex ?? 1 }}>
+      <Text style={{ color: t.sub, fontSize: 11, marginBottom: 3 }}>{label}</Text>
+      <Pressable onPress={() => setOpen(true)}
+        style={{ backgroundColor: t.card, borderColor: t.line, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 11, flexDirection: "row", alignItems: "center" }}>
+        <Text numberOfLines={1} style={{ color: t.text, fontSize: 14, fontWeight: "600", flex: 1 }}>{cur?.label ?? "Auswählen"}</Text>
+        <Text style={{ color: t.accent, fontSize: 12 }}>▾</Text>
+      </Pressable>
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable onPress={() => setOpen(false)} style={{ flex: 1, backgroundColor: "rgba(5,3,20,0.7)", justifyContent: "center", padding: 24 }}>
+          <View style={{ backgroundColor: t.card, borderRadius: 18, borderColor: t.line, borderWidth: 1, maxHeight: "75%", width: "100%", maxWidth: 480, alignSelf: "center", overflow: "hidden" }}>
+            <Text style={{ color: t.sub, fontSize: 12, padding: 14, paddingBottom: 6 }}>{label}</Text>
+            <FlatList data={options} keyExtractor={(o) => o.value}
+              renderItem={({ item }) => (
+                <Pressable onPress={() => { onChange(item.value); setOpen(false); }}
+                  style={{ paddingVertical: 13, paddingHorizontal: 16, backgroundColor: item.value === value ? t.chip : "transparent", flexDirection: "row", alignItems: "center" }}>
+                  <Text style={{ color: item.value === value ? t.accent : t.text, fontSize: 15, fontWeight: item.value === value ? "700" : "400", flex: 1 }} numberOfLines={1}>{item.label}</Text>
+                  {item.sub ? <Text style={{ color: t.sub, fontSize: 12 }}>{item.sub}</Text> : null}
+                </Pressable>
+              )} />
+          </View>
+        </Pressable>
+      </Modal>
+    </View>
+  );
 }
