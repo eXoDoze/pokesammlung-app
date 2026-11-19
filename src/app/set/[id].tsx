@@ -61,8 +61,9 @@ export default function SetScreen() {
 
   const have = entries.filter((e) => e.owned).length;
   const shown = onlyMissing ? entries.filter((e) => !e.owned) : entries;
-  const cols = 3;
-  const w = (width - 32 - (cols - 1) * 8) / cols;
+  const cols = width > 900 ? 5 : 3;
+  const inner = Math.min(width, 900) - 32;
+  const w = (inner - (cols - 1) * 8) / cols;
 
   return (
     <Screen>
@@ -78,8 +79,8 @@ export default function SetScreen() {
           <Chip label="Nur fehlende" on={onlyMissing} onPress={() => setOnlyMissing(!onlyMissing)} />
         </Row>
       </View>
-      <FlatList data={shown} keyExtractor={(e) => e.key} numColumns={cols} contentContainerStyle={{ padding: 16, paddingTop: 0 }}
-        columnWrapperStyle={{ gap: 8 }} ListEmptyComponent={<Empty text="Keine Karten." />}
+      <FlatList data={shown} keyExtractor={(e) => e.key} numColumns={cols} key={cols} contentContainerStyle={{ padding: 16, paddingTop: 0 }}
+        columnWrapperStyle={{ gap: 8, alignSelf: "center", width: inner }} ListEmptyComponent={<Empty text="Keine Karten." />}
         renderItem={({ item: e }) => (
           <Pressable onPress={() => router.push(`/card/${encodeURIComponent(e.card.id)}`)} style={{ width: w, marginBottom: 10, opacity: e.owned ? 1 : 0.45 }}>
             <CardImg uri={e.card.image_url} width={w} height={w * 1.4} label={cardName(e.card)} sub={e.card.number} />
