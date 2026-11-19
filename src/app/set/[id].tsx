@@ -1,7 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, View, useWindowDimensions } from "react-native";
-import { Chip, Empty, Row, Screen, Sub, Txt, CardImg } from "../../components/ui";
+import { Chip, Empty, Field, Row, Screen, Sub, Txt, CardImg } from "../../components/ui";
 import { Variant, pickVariant } from "../../lib/data";
 import { FINISH_LABEL, cardName, variantLabel, setTitle } from "../../lib/labels";
 import { useApp } from "../../lib/session";
@@ -26,6 +26,8 @@ export default function SetScreen() {
   const [owned, setOwned] = useState<{ card_id: string; variant_id: string | null; finish: string; is_first_edition: boolean; is_shadowless: boolean }[]>([]);
   const [master, setMaster] = useState(false);
   const [onlyMissing, setOnlyMissing] = useState(false);
+  const [onlyOwned, setOnlyOwned] = useState(false);
+  const [q, setQ] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -60,7 +62,15 @@ export default function SetScreen() {
   }, [cards, owned, master]);
 
   const have = entries.filter((e) => e.owned).length;
-  const shown = onlyMissing ? entries.filter((e) => !e.owned) : entries;
+  const needle = q.trim().toLowerCase();
+  const shown = entries.filter((e) => {
+    if (onlyMissing && e.owned) return false;
+    if (onlyOwned && !e.owned) return false;
+    if (!needle) return true;
+    const c = e.card;
+    const hay = [c.name_en, c.name_de, c.name_ja, c.name_ko, c.name_zh, c.number].filter(Boolean).join(" ").toLowerCase();
+    return needle.split(/\s+/).every((w) => hay.includes(w));
+  });
   const cols = width > 900 ? 5 : 3;
   const inner = Math.min(width, 900) - 32;
   const w = (inner - (cols - 1) * 8) / cols;
@@ -76,8 +86,10 @@ export default function SetScreen() {
         <Row>
           <Chip label="Karten" on={!master} onPress={() => setMaster(false)} />
           <Chip label="Masterset" on={master} onPress={() => setMaster(true)} />
-          <Chip label="Nur fehlende" on={onlyMissing} onPress={() => setOnlyMissing(!onlyMissing)} />
+          <Chip label="Nur fehlende" on={onlyMissing} onPress={() => { setOnlyMissing(!onlyMissing); setOnlyOwned(false); }} />
+          <Chip label="Nur meine" on={onlyOwned} onPress={() => { setOnlyOwned(!onlyOwned); setOnlyMissing(false); }} />
         </Row>
+        <Field label="" value={q} onChangeText={setQ} placeholder="Im Set suchen: Pokémon-Name oder Nummer" autoCorrect={false} />
       </View>
       <FlatList data={shown} keyExtractor={(e) => e.key} numColumns={cols} key={cols} contentContainerStyle={{ padding: 16, paddingTop: 0 }}
         columnWrapperStyle={{ gap: 8, alignSelf: "center", width: inner }} ListEmptyComponent={<Empty text="Keine Karten." />}

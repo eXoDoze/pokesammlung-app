@@ -1,7 +1,7 @@
 import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { Alert, Linking, ScrollView, View } from "react-native";
+import { Alert, Linking, Pressable, ScrollView, View } from "react-native";
 import { ItemForm, FormValues } from "../../components/ItemForm";
 import { Btn, H, Panel, Pill, Screen, Stat, Sub, Txt } from "../../components/ui";
 import { PriceRow, Variant, jaLinkProduct, latestPrices } from "../../lib/data";
@@ -65,7 +65,7 @@ export default function CardScreen() {
         <Txt bold style={{ fontSize: 22, marginTop: 14 }}>{cardName(card)}</Txt>
         {card.name_en && card.name_en !== cardName(card) ? <Sub>{card.name_en}</Sub> : null}
         <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 2 }}>
-          <Pill label={setName} tone="accent" />
+          <Pressable onPress={() => router.push(`/set/${encodeURIComponent(card.set_id)}`)}><Pill label={`${setName} ›`} tone="accent" /></Pressable>
           {card.number ? <Pill label={`#${card.number}`} /> : null}
           {card.rarity && card.rarity !== "None" ? <Pill label={card.rarity} /> : null}
         </View>

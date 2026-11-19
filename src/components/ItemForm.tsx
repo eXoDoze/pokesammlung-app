@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View } from "react-native";
 import type { Variant } from "../lib/data";
-import { CONDITIONS, GRADERS, LANGUAGES, isFirstEd, isShadowless, variantLabel } from "../lib/labels";
+import { CONDITIONS, FINISH_LABEL, GRADERS, LANGUAGES, isFirstEd, isShadowless, variantLabel } from "../lib/labels";
 import { Btn, Chip, Field, Row, Sub } from "./ui";
 
 export type FormValues = {
@@ -20,6 +20,8 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
 }) {
   const startVariant = variants.find((v) => v.id === initial?.variant_id) ?? variants[0];
   const [variantId, setVariantId] = useState<string | null>(startVariant?.id ?? null);
+  const [finish, setFinish] = useState<string>(initial?.finish ?? startVariant?.finish ?? "non_holo");
+  const [stamp, setStamp] = useState<string>(initial?.stamp ?? startVariant?.stamps?.[0] ?? "");
   const [lang, setLang] = useState(initial?.language ?? defaultLanguage ?? "de");
   const [cond, setCond] = useState(initial?.condition ?? "NM");
   const [graded, setGraded] = useState(initial?.is_graded ?? false);
@@ -46,12 +48,14 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
     if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr("Datum bitte als JJJJ-MM-TT (z. B. 2026-11-19).");
     setErr(""); setBusy(true);
     try {
+      // Variante passend zur gewählten Foil-Art: die gewählte, sonst die erste mit gleicher Art, sonst keine (Preis kommt dann über die Art)
+      const used = v && v.finish === finish ? v : variants.find((x) => x.finish === finish && !isFirstEd(x.subtype) && !isShadowless(x.subtype)) ?? null;
       await onSave({
-        variant_id: v?.id ?? null,
-        finish: v?.finish ?? initial?.finish ?? "non_holo",
-        is_first_edition: v ? isFirstEd(v.subtype) : initial?.is_first_edition ?? false,
-        is_shadowless: v ? isShadowless(v.subtype) : initial?.is_shadowless ?? false,
-        stamp: v?.stamps?.[0] ?? initial?.stamp ?? null,
+        variant_id: used?.id ?? null,
+        finish,
+        is_first_edition: used ? isFirstEd(used.subtype) : initial?.is_first_edition ?? false,
+        is_shadowless: used ? isShadowless(used.subtype) : initial?.is_shadowless ?? false,
+        stamp: stamp.trim() || null,
         language: lang, condition: graded ? "MT" : cond, is_graded: graded,
         grading_company: graded ? (company === "Andere" ? otherCompany.trim() : company) : null, grade: graded ? g : null,
         quantity: q, purchase_price: num(price), purchased_at: date || null, notes: notes.trim() || null, manual_value: num(manual), prefer_manual: preferManual && num(manual) != null,
@@ -62,17 +66,24 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
 
   return (
     <View>
-      {variants.length > 0 && (
+      {variants.some((x) => x.subtype || (x.stamps && x.stamps.length > 0)) && (
         <>
-          <Sub>Ausführung</Sub>
+          <Sub>Variante</Sub>
           <Row>
             {variants.map((x) => (
               <Chip key={x.id} label={variantLabel(x)} on={x.id === variantId}
-                onPress={lockVariant ? undefined : () => setVariantId(x.id)} />
+                onPress={lockVariant ? undefined : () => { setVariantId(x.id); setFinish(x.finish); setStamp(x.stamps?.[0] ?? ""); }} />
             ))}
           </Row>
         </>
       )}
+      <Sub>Ausführung</Sub>
+      <Row>
+        {(["non_holo", "holo", "reverse_holo"] as const).map((f) => (
+          <Chip key={f} label={FINISH_LABEL[f] ?? f} on={finish === f} onPress={() => setFinish(f)} />
+        ))}
+      </Row>
+      <Field label="Stempel (optional, z. B. Pokémon League, Prerelease)" value={stamp} onChangeText={setStamp} placeholder="leer = ohne Stempel" />
       <Sub>Sprache der Karte</Sub>
       <Row>{LANGUAGES.map((l) => <Chip key={l.code} label={l.label} on={lang === l.code} onPress={() => setLang(l.code)} />)}</Row>
       <Sub>Zustand</Sub>

@@ -23,6 +23,9 @@ export type OcrLine = { text: string; h?: number };
 // Zeilen, die nie zum Namen gehören (Copyright, Illustrator, Regeltext-Kopfzeilen)
 const JUNK = /©|nintendo|creatures|game\s*freak|illus|pokernon|pok[eé]mon\s*\/|entwickelt|evolves|schw[aä]che|weakness|resist|r[uü]ckzug|retreat|w[aä]hrend|during/i;
 
+// Entwicklungsstufe oben links ("PHASE 1", "BASIS", "STAGE 2", "Stufe 1", auch zusammengeklebt oder falsch gelesen)
+const TYPE_WORD = /^\s*(?:phase|ph[a4]se|basis|basic|stufe|stage|stadium)\s*[1-2Il|]?\b\s*/i;
+
 export function parseOcr(input: (string | OcrLine)[]): Parsed {
   const ocr: OcrLine[] = input.map((x) => (typeof x === "string" ? { text: x } : x));
   const lines = ocr.map((o) => o.text);
@@ -53,6 +56,7 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
   const hasH = ocr.some((o) => o.h);
   const cand = ocr
     .map((o, i) => ({ text: norm(o.text), h: o.h ?? 0, i }))
+    .map((o) => ({ ...o, text: o.text.replace(TYPE_WORD, "").trim() }))
     .filter((o) => o.text && !JUNK.test(o.text) && /\p{L}{3}/u.test(o.text));
   const nameLines = (hasH ? [...cand].sort((a, b) => b.h - a.h || a.i - b.i).slice(0, 4) : cand.slice(0, 8)).map((o) => o.text);
   const tokens: string[] = [];
@@ -67,6 +71,7 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
       const len = CJK.test(tk) ? 2 : 3;
       if (tk.length < len) continue;
       if (STOP.has(tk.toLowerCase())) continue;
+      if (/^(phase|basis|stufe|stage|basic)[1-2il]?$/i.test(tk)) continue;
       if (!tokens.includes(tk)) tokens.push(tk);
     }
   }
