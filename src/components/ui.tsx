@@ -1,5 +1,5 @@
 import { Image } from "expo-image";
-import React from "react";
+import React, { useState } from "react";
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from "react-native";
 import { useTheme } from "../lib/theme";
 
@@ -59,11 +59,21 @@ export function Panel({ children, style }: { children: React.ReactNode; style?: 
   const t = useTheme();
   return <View style={[{ backgroundColor: t.card, borderRadius: 20, padding: 16, borderColor: t.line, borderWidth: 1 }, style]}>{children}</View>;
 }
-export function Thumb({ uri, w = 48 }: { uri?: string | null; w?: number }) {
+export function CardImg({ uri, width, height, label, sub, radius = 6, fit = "contain" }: { uri?: string | null; width: number | string; height: number | string; label?: string; sub?: string | null; radius?: number; fit?: "contain" | "cover" }) {
   const t = useTheme();
-  return uri
-    ? <Image source={{ uri }} style={{ width: w, height: w * 1.4, borderRadius: 4 }} contentFit="contain" />
-    : <View style={{ width: w, height: w * 1.4, borderRadius: 4, backgroundColor: t.chip }} />;
+  const [failed, setFailed] = useState(false);
+  if (uri && !failed) {
+    return <Image source={{ uri }} onError={() => setFailed(true)} style={{ width: width as any, height: height as any, borderRadius: radius }} contentFit={fit} />;
+  }
+  return (
+    <View style={{ width: width as any, height: height as any, borderRadius: radius, backgroundColor: t.chip, alignItems: "center", justifyContent: "center", padding: 6 }}>
+      {label ? <Text numberOfLines={3} style={{ color: t.text, fontSize: 12, fontWeight: "700", textAlign: "center" }}>{label}</Text> : null}
+      {sub ? <Text numberOfLines={1} style={{ color: t.sub, fontSize: 11, marginTop: 2 }}>{sub}</Text> : null}
+    </View>
+  );
+}
+export function Thumb({ uri, w = 48 }: { uri?: string | null; w?: number }) {
+  return <CardImg uri={uri} width={w} height={w * 1.4} radius={4} />;
 }
 export function Empty({ text }: { text: string }) {
   return <Sub style={{ textAlign: "center", marginVertical: 24 }}>{text}</Sub>;

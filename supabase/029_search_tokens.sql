@@ -1,4 +1,4 @@
--- 029: Suche mit mehreren Begriffen, z. B. "pikachu xy202" oder "glurak base set".
+-- 029 (v2, NULL-Fehler behoben: Karten mit leeren Feldern trafen auf jeden Suchbegriff): Suche mit mehreren Begriffen, z. B. "pikachu xy202" oder "glurak base set".
 -- Jeder Begriff muss zu Kartenname (EN/DE/JA/KO/ZH), Kartennummer, Set-Name oder Set-ID passen.
 -- Die Erweiterung über die Pokédex-Nummer (alle Karten desselben Pokémon) gilt nur bei EINEM Suchbegriff.
 
@@ -31,16 +31,17 @@ as $$
       and not exists (
         select 1 from toks
         where not (
-          c.name_en ilike toks.pat or c.name_de ilike toks.pat or c.name_ja ilike toks.pat
-          or c.name_ko ilike toks.pat or c.name_zh ilike toks.pat
-          or c.number ilike toks.pat
-          or s.name_en ilike toks.pat or s.name_de ilike toks.pat or s.id ilike toks.pat
+          lower(concat_ws(' ', c.name_en, c.name_de, c.name_ja, c.name_ko, c.name_zh, c.number,
+                              s.name_en, s.name_de, s.id)) ilike toks.pat
         )
       )
   ),
   dex as (
-    select distinct n.dex_ids[1] as d from named n, tcount
-    where tcount.n = 1 and cardinality(n.dex_ids) = 1
+    select distinct c.dex_ids[1] as d
+    from named n
+    join public.cards c on c.id = n.id, tcount, toks
+    where tcount.n = 1 and cardinality(c.dex_ids) = 1
+      and lower(concat_ws(' ', c.name_en, c.name_de, c.name_ja, c.name_ko, c.name_zh)) ilike toks.pat
   ),
   dexn as (select count(*) as n from dex),
   hits as (

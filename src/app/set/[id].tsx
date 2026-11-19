@@ -1,8 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
-import { Image } from "expo-image";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, View, useWindowDimensions } from "react-native";
-import { Chip, Empty, Row, Screen, Sub, Txt } from "../../components/ui";
+import { Chip, Empty, Row, Screen, Sub, Txt, CardImg } from "../../components/ui";
 import { Variant, pickVariant } from "../../lib/data";
 import { FINISH_LABEL, cardName, variantLabel, setTitle } from "../../lib/labels";
 import { useApp } from "../../lib/session";
@@ -83,9 +82,10 @@ export default function SetScreen() {
         columnWrapperStyle={{ gap: 8 }} ListEmptyComponent={<Empty text="Keine Karten." />}
         renderItem={({ item: e }) => (
           <Pressable onPress={() => router.push(`/card/${encodeURIComponent(e.card.id)}`)} style={{ width: w, marginBottom: 10, opacity: e.owned ? 1 : 0.45 }}>
-            {e.card.image_url
-              ? <Image source={{ uri: e.card.image_url }} style={{ width: w, height: w * 1.4, borderRadius: 6 }} contentFit="contain" />
-              : <View style={{ width: w, height: w * 1.4, borderRadius: 6, backgroundColor: t.chip }} />}
+            <CardImg uri={e.card.image_url} width={w} height={w * 1.4} label={cardName(e.card)} sub={e.card.number} />
+            <Sub numberOfLines={1}>{e.card.number}</Sub>
+                </View>
+              )}
             <Sub numberOfLines={1}>{e.card.number} {cardName(e.card)}</Sub>
             {e.variant && <Sub numberOfLines={1}>{variantLabel(e.variant)}</Sub>}
             {e.owned && <Txt style={{ position: "absolute", top: 2, right: 4 }}>✅</Txt>}

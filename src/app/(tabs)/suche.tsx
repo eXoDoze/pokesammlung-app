@@ -2,7 +2,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, Text, View, useWindowDimensions } from "react-native";
-import { Btn, Dropdown, Empty, Field, Screen } from "../../components/ui";
+import { Btn, Dropdown, Empty, Field, Screen, CardImg } from "../../components/ui";
 import { cardName } from "../../lib/labels";
 import { supabase } from "../../lib/supabase";
 import { hueFor, useTheme } from "../../lib/theme";
@@ -85,9 +85,7 @@ export default function Suche() {
             <Pressable onPress={() => router.push(`/card/${encodeURIComponent(h.id)}`)} style={{ width: tileW }}>
               <View style={{ backgroundColor: t.card, borderRadius: 14, overflow: "hidden", borderColor: t.line, borderWidth: 1 }}>
                 <View style={{ height: tileW * 1.38, alignItems: "center", justifyContent: "center", backgroundColor: `hsl(${hue}, 40%, 17%)` }}>
-                  {h.image_url
-                    ? <Image source={{ uri: h.image_url }} style={{ width: "92%", height: "92%" }} contentFit="contain" />
-                    : <Text style={{ color: `hsl(${hue}, 80%, 80%)`, fontSize: 13, fontWeight: "700", textAlign: "center", padding: 6 }} numberOfLines={3}>{cardName(h)}</Text>}
+                  <CardImg uri={h.image_url} width="92%" height="92%" label={cardName(h)} radius={4} />
                 </View>
                 <View style={{ padding: 7 }}>
                   <Text numberOfLines={1} style={{ color: t.text, fontSize: 12, fontWeight: "700" }}>{cardName(h)}</Text>
