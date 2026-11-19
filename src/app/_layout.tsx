@@ -26,6 +26,7 @@ function Gate() {
       <Stack.Screen name="set/[id]" options={{ title: "Set" }} />
       <Stack.Screen name="card/[id]" options={{ title: "Karte" }} />
       <Stack.Screen name="item/[id]" options={{ title: "Sammlungseintrag" }} />
+      <Stack.Screen name="custom-card" options={{ title: "Eigene Karte anlegen" }} />
     </Stack>
   );
 }

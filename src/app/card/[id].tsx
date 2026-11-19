@@ -3,11 +3,12 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Alert, Linking, ScrollView, View } from "react-native";
 import { ItemForm, FormValues } from "../../components/ItemForm";
-import { Btn, H, Panel, Screen, Sub, Txt } from "../../components/ui";
+import { Btn, H, Panel, Pill, Screen, Stat, Sub, Txt } from "../../components/ui";
 import { PriceRow, Variant, jaLinkProduct, latestPrices } from "../../lib/data";
 import { cardName, cardmarketUrl, ebaySoldUrl, eur, isFirstEd, variantLabel } from "../../lib/labels";
 import { useApp } from "../../lib/session";
 import { supabase } from "../../lib/supabase";
+import { hueFor } from "../../lib/theme";
 
 type Card = {
   id: string; number: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null;
@@ -55,12 +56,19 @@ export default function CardScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ title: cardName(card) }} />
-      <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
-        <View style={{ alignItems: "center" }}>
-          {card.image_url && <Image source={{ uri: card.image_url }} style={{ width: 240, height: 336 }} contentFit="contain" />}
+      <ScrollView contentContainerStyle={{ padding: 16, maxWidth: 760, width: "100%", alignSelf: "center" }} keyboardShouldPersistTaps="handled">
+        <View style={{ alignItems: "center", borderRadius: 24, paddingVertical: 20, backgroundColor: `hsl(${hueFor(card.set_id)}, 42%, 17%)` }}>
+          {card.image_url
+            ? <Image source={{ uri: card.image_url }} style={{ width: 260, height: 364 }} contentFit="contain" />
+            : <View style={{ width: 260, height: 364, alignItems: "center", justifyContent: "center" }}><Sub>Kein Bild vorhanden</Sub></View>}
         </View>
-        <Txt bold style={{ fontSize: 20, marginTop: 10 }}>{cardName(card)}</Txt>
-        <Sub>{card.name_en && card.name_en !== cardName(card) ? `${card.name_en} · ` : ""}{setName} · Nr. {card.number}{card.rarity ? ` · ${card.rarity}` : ""}</Sub>
+        <Txt bold style={{ fontSize: 22, marginTop: 14 }}>{cardName(card)}</Txt>
+        {card.name_en && card.name_en !== cardName(card) ? <Sub>{card.name_en}</Sub> : null}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 2 }}>
+          <Pill label={setName} tone="accent" />
+          {card.number ? <Pill label={`#${card.number}`} /> : null}
+          {card.rarity && card.rarity !== "None" ? <Pill label={card.rarity} /> : null}
+        </View>
 
         <H>Marktpreise (Cardmarket, alle Zustände gemischt)</H>
         <Panel>
@@ -85,7 +93,11 @@ export default function CardScreen() {
             return (
               <View key={v.id} style={{ paddingVertical: 6 }}>
                 <Txt bold>{variantLabel(v)}</Txt>
-                <Sub>Trend {eur(trend)} · ab {eur(low)}{!row ? " (kein Preis vorhanden)" : ""}</Sub>
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+                  <Stat label="Trend" value={eur(trend)} />
+                  <Stat label="Ab" value={eur(low)} />
+                </View>
+                {!row ? <Sub style={{ marginTop: 4 }}>Kein Preis vorhanden</Sub> : null}
                 {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (deutsche Verkäufer)" onPress={() => Linking.openURL(url)} />}
               </View>
             );
