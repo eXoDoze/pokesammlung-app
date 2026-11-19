@@ -24,7 +24,9 @@ export default function TagScreen() {
       let query = supabase.from("cards")
         .select("id,number,name_en,name_de,name_ja,name_ko,name_zh,image_url,sets(name_en,name_de,name_ja,name_ko,name_zh,region,release_date)")
         .limit(600);
-      query = tag.op === "like" ? query.like(tag.col, tag.pat) : query.ilike(tag.col, tag.pat);
+      const pats = Array.isArray(tag.pat) ? tag.pat : [tag.pat];
+      if (pats.length === 1) query = tag.op === "like" ? query.like(tag.col, pats[0]) : query.ilike(tag.col, pats[0]);
+      else query = query.or(pats.map((p) => `${tag.col}.${tag.op}.${p.replace(/%/g, "*")}`).join(","));
       const { data } = await query;
       const list = ((data ?? []) as any as Row[]).sort((a, b) => String(b.sets?.release_date ?? "").localeCompare(String(a.sets?.release_date ?? "")));
       setRows(list); setBusy(false);

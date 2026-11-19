@@ -28,7 +28,7 @@ function MoverList({ rows, own }: { rows: Mover[]; own?: boolean }) {
               <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
                 {/* "Holo" weglassen, wenn schon ein genauerer Typ (Full Art, SIR, Tag Team …) angezeigt wird */}
                 {(r.variant_label ? r.variant_label.split(" · ") : [])
-                  .filter((v) => !(v === "Holo" && cardTags({ name_en: r.name_en, rarity: r.rarity }).some((t) => ["tagteam", "sir", "ir", "hyper", "secret", "ultra", "vmax", "vstar"].includes(t.key))))
+                  .filter((v) => !(v === "Holo" && cardTags({ name_en: r.name_en, rarity: r.rarity }).some((t) => ["tagteam", "sir", "ir", "hyper", "megahyper", "secret", "fullart", "vmax", "vstar"].includes(t.key))))
                   .map((v) => <Pill key={v} label={v} />)}
                 <CardTags card={{ name_en: r.name_en, rarity: r.rarity }} />
               </View>

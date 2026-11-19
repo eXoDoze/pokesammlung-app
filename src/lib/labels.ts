@@ -84,8 +84,9 @@ export function setNative(s: SetNames | null | undefined): string | null {
 
 // ---------------------------------------------------------------------------
 // Karten-Typen als anklickbare Pills (Tag Team, VMAX, SIR …). Gleiche Definition für Anzeige und Listenabfrage.
-export type Tag = { key: string; label: string; col: "name_en" | "rarity"; op: "like" | "ilike"; pat: string };
+export type Tag = { key: string; label: string; col: "name_en" | "rarity"; op: "like" | "ilike"; pat: string | string[] };
 export const TAGS: Tag[] = [
+  // nach Kartenname
   { key: "tagteam", label: "Tag Team", col: "name_en", op: "ilike", pat: "% & % GX" },
   { key: "vmax", label: "VMAX", col: "name_en", op: "like", pat: "% VMAX" },
   { key: "vstar", label: "VSTAR", col: "name_en", op: "like", pat: "% VSTAR" },
@@ -94,27 +95,39 @@ export const TAGS: Tag[] = [
   { key: "gx", label: "GX", col: "name_en", op: "like", pat: "% GX" },
   { key: "ex", label: "ex", col: "name_en", op: "like", pat: "% ex" },
   { key: "exold", label: "EX", col: "name_en", op: "like", pat: "% EX" },
+  { key: "mega", label: "Mega", col: "name_en", op: "like", pat: "Mega %" },
+  { key: "lvx", label: "LV.X", col: "name_en", op: "like", pat: "% LV.X" },
+  { key: "legend", label: "LEGEND", col: "name_en", op: "ilike", pat: "% LEGEND" },
+  { key: "delta", label: "Delta Species", col: "name_en", op: "like", pat: "%δ%" },
   { key: "radiant", label: "Radiant", col: "name_en", op: "like", pat: "Radiant %" },
-  { key: "sir", label: "SIR", col: "rarity", op: "ilike", pat: "special illustration rare" },
-  { key: "ir", label: "Illustration Rare", col: "rarity", op: "ilike", pat: "illustration rare" },
+  // nach Seltenheit (englische Seltenheiten aus TCGdex, gelten auch für japanische/asiatische Karten)
+  { key: "sir", label: "SIR / SAR", col: "rarity", op: "ilike", pat: "special illustration rare" },
+  { key: "ir", label: "Illustration Rare", col: "rarity", op: "ilike", pat: ["illustration rare", "art rare"] },
   { key: "hyper", label: "Hyper Rare", col: "rarity", op: "ilike", pat: "hyper rare" },
+  { key: "megahyper", label: "Mega Hyper Rare", col: "rarity", op: "ilike", pat: "mega hyper rare" },
   { key: "secret", label: "Secret Rare", col: "rarity", op: "ilike", pat: "secret rare" },
-  { key: "ultra", label: "Ultra Rare / Full Art", col: "rarity", op: "ilike", pat: "ultra rare" },
+  { key: "fullart", label: "Full Art", col: "rarity", op: "ilike", pat: ["ultra rare", "super rare", "full art trainer"] },
+  { key: "character", label: "Character Rare", col: "rarity", op: "ilike", pat: "character %" },
+  { key: "triple", label: "Triple Rare", col: "rarity", op: "ilike", pat: "triple rare" },
   { key: "double", label: "Double Rare", col: "rarity", op: "ilike", pat: "double rare" },
-  { key: "ace", label: "ACE SPEC", col: "rarity", op: "ilike", pat: "ace spec rare" },
+  { key: "ace", label: "ACE SPEC", col: "rarity", op: "ilike", pat: ["ace spec rare", "ace rare"] },
   { key: "amazing", label: "Amazing Rare", col: "rarity", op: "ilike", pat: "amazing rare" },
   { key: "radiantrare", label: "Radiant Rare", col: "rarity", op: "ilike", pat: "radiant rare" },
-  { key: "shiny", label: "Shiny Rare", col: "rarity", op: "ilike", pat: "shiny rare" },
-  { key: "shinyultra", label: "Shiny Ultra Rare", col: "rarity", op: "ilike", pat: "shiny ultra rare" },
-  { key: "crown", label: "Crown", col: "rarity", op: "ilike", pat: "crown" },
+  { key: "shiny", label: "Shiny", col: "rarity", op: "ilike", pat: ["shiny%", "shining"] },
+  { key: "prime", label: "Prime", col: "rarity", op: "ilike", pat: "rare prime" },
+  { key: "prism", label: "Prism Star", col: "rarity", op: "ilike", pat: "prism rare" },
+  { key: "classic", label: "Classic Collection", col: "rarity", op: "ilike", pat: "classic collection" },
+  { key: "promo", label: "Promo", col: "rarity", op: "ilike", pat: "promo" },
 ];
 export const tagByKey = (k: string) => TAGS.find((t) => t.key === k);
 
 function tagMatches(t: Tag, c: { name_en?: string | null; rarity?: string | null }) {
   const val = t.col === "name_en" ? c.name_en : c.rarity;
   if (!val) return false;
-  const re = new RegExp("^" + t.pat.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*") + "$", t.op === "ilike" ? "i" : "");
-  return re.test(val.trim());
+  return (Array.isArray(t.pat) ? t.pat : [t.pat]).some((p) => {
+    const re = new RegExp("^" + p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*") + "$", t.op === "ilike" ? "i" : "");
+    return re.test(val.trim());
+  });
 }
 export function cardTags(c: { name_en?: string | null; rarity?: string | null }): Tag[] {
   const hit = TAGS.filter((t) => tagMatches(t, c));
