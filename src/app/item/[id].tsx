@@ -60,7 +60,7 @@ export default function ItemScreen() {
       <Stack.Screen options={{ title: cardName(item.cards) }} />
       <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
         <Btn kind="ghost" title="Karte ansehen" onPress={() => router.push(`/card/${encodeURIComponent(item.card_id)}`)} />
-        {url && <Btn kind="ghost" title="Auf Cardmarket mit meinem Zustand (deutsche Verkäufer)" onPress={() => Linking.openURL(url)} />}
+        {url && <Btn kind="ghost" title="Auf Cardmarket mit meinem Zustand (alle Verkäufer)" onPress={() => Linking.openURL(url)} />}
         {isClosed ? (
           <Panel>
             <Pill label={item.status === "sold" ? "Verkauft" : "Getauscht"} tone={item.status === "sold" ? "good" : "accent"} />

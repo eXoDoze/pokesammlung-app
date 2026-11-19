@@ -44,7 +44,7 @@ export function variantLabel(v: { finish: string; subtype?: string | null; stamp
   return parts.join(" · ");
 }
 
-// Links zu Cardmarket (Deutschland-Filter) und eBay (verkaufte Artikel)
+// Links zu Cardmarket (alle Verkäufer) und eBay (verkaufte Artikel)
 export function cardmarketUrl(opts: {
   productId?: number | null; languageCode?: string; condition?: string;
   reverse?: boolean; firstEd?: boolean;
@@ -55,7 +55,7 @@ export function cardmarketUrl(opts: {
   if (lang) q.set("language", String(lang.cmId));
   const cond = CONDITIONS.find((c) => c.code === opts.condition);
   if (cond) q.set("minCondition", String(cond.cm));
-  q.set("sellerCountry", "7"); // Deutschland
+  // Kein Verkäufer-Länderfilter: Preise unterscheiden sich je nach Herkunft, es sollen alle Verkäufer erscheinen
   if (opts.reverse) q.set("isReverseHolo", "Y");
   if (opts.firstEd) q.set("isFirstEd", "Y");
   return `https://www.cardmarket.com/de/Pokemon/Products?${q.toString()}`;

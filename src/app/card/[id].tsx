@@ -77,7 +77,7 @@ export default function CardScreen() {
             <View style={{ paddingVertical: 6 }}>
               <Txt bold>Japanische Karte</Txt>
               <Sub>Kein Marktwert: Cardmarkets Preisdatei gilt für alle Sprachen gemischt. Die Zuordnung zum englischen Produkt wurde automatisch gefunden und kann ungenau sein.</Sub>
-              <Btn kind="ghost" title="Auf Cardmarket ansehen (Japanisch, deutsche Verkäufer)"
+              <Btn kind="ghost" title="Auf Cardmarket ansehen (Japanisch, alle Verkäufer)"
                 onPress={() => Linking.openURL(cardmarketUrl({ productId: jaProduct, languageCode: "ja" })!)} />
             </View>
           )}
@@ -98,10 +98,17 @@ export default function CardScreen() {
                   <Stat label="Ab" value={eur(low)} />
                 </View>
                 {!row ? <Sub style={{ marginTop: 4 }}>Kein Preis vorhanden</Sub> : null}
-                {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (deutsche Verkäufer)" onPress={() => Linking.openURL(url)} />}
+                {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (alle Verkäufer)" onPress={() => Linking.openURL(url)} />}
               </View>
             );
           })}
+          {(() => {
+            // Gibt es offiziell keine Reverse-Holo-Variante, trotzdem einen Link mit Reverse-Holo-Filter anbieten
+            const base = card.card_variants.find((v) => v.cardmarket_product_id);
+            if (!base || card.card_variants.some((v) => v.finish === "reverse_holo")) return null;
+            const url = cardmarketUrl({ productId: base.cardmarket_product_id, languageCode: lang, reverse: true });
+            return url ? <Btn kind="ghost" title="Auf Cardmarket ansehen (Reverse Holo-Filter)" onPress={() => Linking.openURL(url)} /> : null;
+          })()}
           <Btn kind="ghost" title="eBay: verkaufte Artikel ansehen" onPress={() => Linking.openURL(ebaySoldUrl(card.name_en ?? cardName(card), card.number, card.sets?.name_en))} />
         </Panel>
 
