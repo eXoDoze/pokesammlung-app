@@ -11,13 +11,20 @@ const norm = (s: string) => s.normalize("NFKC").replace(/\s+/g, " ").trim();
 const CJK = /[぀-ヿ㐀-鿿가-힯]/;
 const STOP = new Set([
   "basic", "stage", "stage1", "stage2", "evolves", "from", "pokemon", "pokémon", "trainer", "item", "supporter", "energy",
+  "phase", "phase1", "phase2", "kp", "entwickelt", "sich", "aus", "schwäche", "resistenz", "rückzug", "nintendo", "creatures", "game", "freak",
   "weakness", "resistance", "retreat", "cost", "illus", "illus.", "ability", "attack", "when", "your", "this", "that", "the", "and", "for", "you", "may",
   "hp", "lv", "no", "ex", "gx", "vmax", "vstar", "v", "break", "prism", "star", "tera",
   "ポケモン", "トレーナー", "エネルギー", "たね", "進化", "進化前", "弱点", "抵抗力", "にげる", "ワザ", "特性", "グッズ", "サポート", "スタジアム",
   "弱点", "抵抗", "撤退", "宝可梦", "训练家", "能量", "포켓몬", "트레이너", "에너지",
 ]);
 
-export function parseOcr(lines: string[]): Parsed {
+export type OcrLine = { text: string; h?: number };
+// Zeilen, die nie zum Namen gehören (Copyright, Illustrator, Regeltext-Kopfzeilen)
+const JUNK = /©|nintendo|creatures|game\s*freak|illus|pokernon|pok[eé]mon\s*\/|entwickelt|evolves|schw[aä]che|weakness|resist|r[uü]ckzug|retreat|w[aä]hrend|during/i;
+
+export function parseOcr(input: (string | OcrLine)[]): Parsed {
+  const ocr: OcrLine[] = input.map((x) => (typeof x === "string" ? { text: x } : x));
+  const lines = ocr.map((o) => o.text);
   const clean = lines.map(norm).filter(Boolean);
   const text = clean.join("\n");
   const numbers: Parsed["numbers"] = [];
@@ -35,9 +42,14 @@ export function parseOcr(lines: string[]): Parsed {
   const h = text.match(/\bHP\s*(\d{2,3})\b/i) ?? text.match(/\b(\d{2,3})\s*HP\b/i);
   if (h) hp = Number(h[1]);
 
-  // Namensteile aus den ersten Zeilen (Kartenkopf), ohne Zahlen/Zusätze
+  // Namensteile: die höchsten (größten) Textzeilen, ohne Copyright/Regeltext; ohne Höhenangabe die ersten Zeilen
+  const hasH = ocr.some((o) => o.h);
+  const cand = ocr
+    .map((o, i) => ({ text: norm(o.text), h: o.h ?? 0, i }))
+    .filter((o) => o.text && !JUNK.test(o.text) && /\p{L}{3}/u.test(o.text));
+  const nameLines = (hasH ? [...cand].sort((a, b) => b.h - a.h || a.i - b.i).slice(0, 4) : cand.slice(0, 8)).map((o) => o.text);
   const tokens: string[] = [];
-  for (const line of clean.slice(0, 8)) {
+  for (const line of nameLines) {
     const cleaned = line
       .replace(/\bHP\s*\d+\b|\b\d+\s*HP\b|\bLV\.?\s*\d+\b|\bLv\.?\s*\d+\b/gi, " ")
       .replace(/[0-9０-９]+/g, " ")

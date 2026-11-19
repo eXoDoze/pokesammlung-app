@@ -1,11 +1,17 @@
 import { Image } from "expo-image";
+import { useSegments } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import React, { useState } from "react";
 import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from "react-native";
 import { useTheme } from "../lib/theme";
 
 export function Screen({ children }: { children: React.ReactNode }) {
   const t = useTheme();
-  return <View style={{ flex: 1, backgroundColor: t.bg }}>{children}</View>;
+  const insets = useSafeAreaInsets();
+  const segments = useSegments();
+  // In den Tabs kümmert sich die Tab-Leiste um den unteren Rand, sonst hier (Android-Navigationsknöpfe / Gestenleiste)
+  const inTabs = (segments as string[])[0] === "(tabs)";
+  return <View style={{ flex: 1, backgroundColor: t.bg, paddingBottom: inTabs ? 0 : insets.bottom }}>{children}</View>;
 }
 export function H({ children }: { children: React.ReactNode }) {
   const t = useTheme();

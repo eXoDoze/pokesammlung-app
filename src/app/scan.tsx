@@ -3,11 +3,12 @@ import { Stack, useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { Btn, CardImg, Field, Screen, Segmented, Sub } from "../components/ui";
-import { Hit, Parsed, parseOcr, scoreHit } from "../lib/scan";
+import { Hit, OcrLine, Parsed, parseOcr, scoreHit } from "../lib/scan";
 import { cardName } from "../lib/labels";
 import { useApp } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // Texterkennung läuft nur auf dem Handy (nicht im Browser)
 const ML: any = Platform.OS === "web" ? null : require("@react-native-ml-kit/text-recognition");
@@ -17,21 +18,22 @@ type Cand = { hit: Hit; score: number };
 
 const REGION_LANG: Record<string, string> = { japan: "ja", korea: "ko", china: "zh-cn", taiwan: "zh-tw" };
 
-async function readText(uri: string, mode: Mode): Promise<string[]> {
+async function readText(uri: string, mode: Mode): Promise<OcrLine[]> {
   if (!ML) return [];
   const T = ML.TextRecognitionScript ?? {};
-  const lines: string[] = [];
+  const lines: OcrLine[] = [];
   const run = async (script?: any) => {
     try {
       const r = script ? await ML.default.recognize(uri, script) : await ML.default.recognize(uri);
-      for (const b of r.blocks ?? []) for (const l of b.lines ?? []) lines.push(l.text);
+      for (const b of r.blocks ?? []) for (const l of b.lines ?? []) lines.push({ text: l.text, h: l.frame?.height ?? l.bounds?.height });
     } catch { /* Schrift nicht verfügbar: ignorieren */ }
   };
   await run(); // Latein
   if (mode === "auto") await run(T.JAPANESE);
   if (mode === "zh") await run(T.CHINESE);
   if (mode === "ko") await run(T.KOREAN);
-  return [...new Set(lines)];
+  const seen = new Set<string>();
+  return lines.filter((l) => (seen.has(l.text) ? false : (seen.add(l.text), true)));
 }
 
 async function search(term: string): Promise<Hit[]> {
@@ -39,10 +41,21 @@ async function search(term: string): Promise<Hit[]> {
   return (data ?? []) as Hit[];
 }
 
+async function byNumber(num: string, total: string): Promise<Hit[]> {
+  if (!/^\d+$/.test(total)) return [];
+  const { data } = await supabase.rpc("find_cards_by_number", { p_num: num, p_total: Number(total) });
+  return (data ?? []) as Hit[];
+}
+
 async function findCandidates(p: Parsed): Promise<Cand[]> {
   const queries = [...p.tokens.slice(0, 4), ...p.codes.slice(0, 2)];
   const found = new Map<string, { hit: Hit; n: number }>();
-  const results = await Promise.all(queries.map((q) => search(q)));
+  const [results, numResults] = await Promise.all([
+    Promise.all(queries.map((q) => search(q))),
+    Promise.all(p.numbers.slice(0, 3).map((n) => byNumber(n.num, n.total ?? ""))),
+  ]);
+  const numIds = new Set<string>();
+  numResults.forEach((hits) => hits.forEach((h) => { numIds.add(h.id); if (!found.has(h.id)) found.set(h.id, { hit: h, n: 0 }); }));
   results.forEach((hits) => {
     const seen = new Set<string>();
     for (const h of hits) {
@@ -51,7 +64,7 @@ async function findCandidates(p: Parsed): Promise<Cand[]> {
       if (cur) cur.n++; else found.set(h.id, { hit: h, n: 1 });
     }
   });
-  return [...found.values()].map(({ hit, n }) => ({ hit, score: scoreHit(hit, p, n) })).sort((a, b) => b.score - a.score).slice(0, 12);
+  return [...found.values()].map(({ hit, n }) => ({ hit, score: scoreHit(hit, p, n) + (numIds.has(hit.id) ? 12 : 0) })).sort((a, b) => b.score - a.score).slice(0, 12);
 }
 
 export default function Scan() {
@@ -67,9 +80,13 @@ export default function Scan() {
   const [manual, setManual] = useState("");
   const [added, setAdded] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
+  const [torch, setTorch] = useState(false);
+  const [zoom, setZoom] = useState(0);
+  const insets = useSafeAreaInsets();
 
-  const evaluate = async (ls: string[]) => {
-    const p = parseOcr(ls);
+  const evaluate = async (ol: OcrLine[]) => {
+    const p = parseOcr(ol);
+    const ls = ol.map((o) => o.text);
     setLines(ls);
     setManual(p.tokens.slice(0, 2).join(" "));
     setCands(await findCandidates(p));
@@ -79,7 +96,7 @@ export default function Scan() {
     if (!cam.current || busy) return;
     setBusy(true); setMsg("");
     try {
-      const pic = await cam.current.takePictureAsync({ quality: 0.8 });
+      const pic = await cam.current.takePictureAsync({ quality: 0.9 });
       await evaluate(await readText(pic.uri, mode));
     } catch (e: any) { setMsg(e?.message ?? "Foto fehlgeschlagen"); }
     setBusy(false);
@@ -133,11 +150,16 @@ export default function Scan() {
       <Stack.Screen options={{ title: added.length ? `Scanner · ${added.length} hinzugefügt` : "Karte scannen" }} />
       {!showResults && (
         <View style={{ flex: 1 }}>
-          <CameraView ref={cam} style={{ flex: 1 }} facing="back" />
+          <CameraView ref={cam} style={{ flex: 1 }} facing="back" zoom={zoom} enableTorch={torch} autofocus="on" />
           <View pointerEvents="none" style={{ position: "absolute", top: 24, left: 0, right: 0, bottom: 150, alignItems: "center", justifyContent: "center" }}>
             <View style={{ width: "72%", aspectRatio: 0.716, borderWidth: 2, borderColor: t.accent, borderRadius: 14 }} />
           </View>
           <View style={{ padding: 12, backgroundColor: t.card, gap: 10 }}>
+            <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flex: 1 }}><Btn kind="ghost" title={torch ? "💡 Licht aus" : "💡 Licht an"} onPress={() => setTorch((x) => !x)} /></View>
+              <View style={{ flex: 1 }}><Btn kind="ghost" title="− Zoom" onPress={() => setZoom((z) => Math.max(0, Math.round((z - 0.1) * 10) / 10))} /></View>
+              <View style={{ flex: 1 }}><Btn kind="ghost" title={`+ Zoom${zoom ? ` (${Math.round(zoom * 100)}%)` : ""}`} onPress={() => setZoom((z) => Math.min(0.6, Math.round((z + 0.1) * 10) / 10))} /></View>
+            </View>
             <Segmented value={mode} onChange={(v) => setMode(v as Mode)} options={[{ value: "auto", label: "EN/DE/JA" }, { value: "zh", label: "Chinesisch" }, { value: "ko", label: "Koreanisch" }]} />
             {!!msg && <Text style={{ color: t.sub, fontSize: 12, textAlign: "center" }}>{msg}</Text>}
             <Btn title={busy ? "Erkenne …" : "Karte fotografieren"} onPress={snap} busy={busy} />
