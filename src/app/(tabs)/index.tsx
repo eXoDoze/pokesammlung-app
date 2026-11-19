@@ -8,7 +8,7 @@ import { useApp } from "../../lib/session";
 import { supabase } from "../../lib/supabase";
 import { useTheme } from "../../lib/theme";
 
-type Mover = { kind: string; card_id: string; name_en: string | null; image_url: string | null; price_then: number; price_now: number; change_pct: number; aus_verlauf?: boolean; variant_label?: string | null; condition?: string; is_graded?: boolean; grading_company?: string; grade?: number; then_at?: string; now_at?: string };
+type Mover = { kind: string; card_id: string; name_en: string | null; image_url: string | null; price_then: number; price_now: number; change_pct: number; aus_verlauf?: boolean; variant_label?: string | null; price_trend?: number | null; condition?: string; is_graded?: boolean; grading_company?: string; grade?: number; then_at?: string; now_at?: string };
 const dm = (s?: string) => (s ? `${s.slice(8, 10)}.${s.slice(5, 7)}.` : "");
 
 function MoverList({ rows, own }: { rows: Mover[]; own?: boolean }) {
@@ -22,8 +22,14 @@ function MoverList({ rows, own }: { rows: Mover[]; own?: boolean }) {
           style={{ flexDirection: "row", alignItems: "center", padding: 8, gap: 12, borderTopWidth: i ? 1 : 0, borderTopColor: t.line }}>
           <Thumb uri={r.image_url} w={40} />
           <View style={{ flex: 1 }}>
-            <Txt bold numberOfLines={1}>{r.name_en}{!own && r.variant_label ? ` (${r.variant_label})` : ""}</Txt>
+            <Txt bold numberOfLines={1}>{r.name_en}</Txt>
+            {!own && r.variant_label ? (
+              <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
+                {r.variant_label.split(" · ").map((v) => <Pill key={v} label={v} tone="accent" />)}
+              </View>
+            ) : null}
             <Sub>{own && r.condition ? `${r.is_graded ? `${r.grading_company} ${r.grade}` : r.condition} · ` : ""}{eur(r.price_then)} → {eur(r.price_now)}</Sub>
+            {!own && r.price_trend != null ? <Sub>Preis-Trend aktuell: {eur(r.price_trend)}</Sub> : null}
           </View>
           <Pill label={pct(r.change_pct)} tone={r.change_pct >= 0 ? "good" : "bad"} />
         </Pressable>
@@ -111,7 +117,7 @@ export default function Start() {
         <H>Meine Sammlung</H>
         <MoverList rows={own} own />
         <H>Gesamtmarkt</H>
-        <Sub style={{ marginBottom: 8 }}>Cardmarket-Trend (alle Zustände gemischt), Karten ab 5 €.</Sub>
+        <Sub style={{ marginBottom: 8 }}>Cardmarket-Durchschnitt (7 bzw. 30 Tage, alle Zustände gemischt), Karten ab 5 €.</Sub>
         <MoverList rows={market} />
       </ScrollView>
     </Screen>
