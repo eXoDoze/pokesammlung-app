@@ -2,10 +2,11 @@ import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, View } from "react-native";
+import { CardTags } from "../../components/CardTags";
 import { ItemForm, FormValues } from "../../components/ItemForm";
 import { Btn, H, Panel, Pill, Screen, Stat, Sub, Txt } from "../../components/ui";
-import { PriceRow, Variant, jaLinkProduct, latestPrices } from "../../lib/data";
-import { cardName, cardmarketUrl, ebaySoldUrl, eur, isFirstEd, variantLabel, setTitle } from "../../lib/labels";
+import { PriceRow, Variant, jaLinkProduct, latestPrices, ITEM_SELECT, Item, valuesForItems, Value } from "../../lib/data";
+import { FINISH_LABEL, cardName, cardmarketUrl, ebaySoldUrl, eur, isFirstEd, variantLabel, setTitle } from "../../lib/labels";
 import { useApp } from "../../lib/session";
 import { supabase } from "../../lib/supabase";
 import { hueFor } from "../../lib/theme";
@@ -26,6 +27,7 @@ export default function CardScreen() {
   const [prices, setPrices] = useState<Map<number, PriceRow>>(new Map());
   const [lang, setLang] = useState("de");
   const [jaProduct, setJaProduct] = useState<number | null>(null);
+  const [mine, setMine] = useState<{ item: Item; value: Value }[]>([]);
 
   useEffect(() => {
     (async () => {
@@ -35,12 +37,18 @@ export default function CardScreen() {
       const c = data as any as Card | null;
       setCard(c);
       setJaProduct(await jaLinkProduct(id));
+      if (active) {
+        const own = await supabase.from("collection_items").select(ITEM_SELECT).eq("collection_id", active.id).eq("status", "owned").eq("card_id", id);
+        const items = (own.data ?? []) as any as Item[];
+        const vals = items.length ? await valuesForItems(items) : new Map();
+        setMine(items.map((it) => ({ item: it, value: vals.get(it.id) ?? null })));
+      }
       if (c) {
         setLang(c.sets?.region === "japan" ? "ja" : "de");
         setPrices(await latestPrices(c.card_variants.map((v) => v.cardmarket_product_id).filter(Boolean) as number[]));
       }
     })();
-  }, [id]);
+  }, [id, active?.id]);
 
   if (!card) return <Screen><Sub style={{ padding: 16 }}>Lade …</Sub></Screen>;
   const setName = setTitle(card.sets as any);
@@ -68,7 +76,22 @@ export default function CardScreen() {
           <Pressable onPress={() => router.push(`/set/${encodeURIComponent(card.set_id)}`)}><Pill label={`${setName} ›`} tone="accent" /></Pressable>
           {card.number ? <Pill label={`#${card.number}`} /> : null}
           {card.rarity && card.rarity !== "None" ? <Pill label={card.rarity} /> : null}
+          <CardTags card={card} />
         </View>
+
+        {mine.length > 0 && (
+          <>
+            <H>In deiner Sammlung</H>
+            <Panel>
+              {mine.map(({ item: it, value }) => (
+                <Pressable key={it.id} onPress={() => router.push(`/item/${it.id}`)} style={{ paddingVertical: 8 }}>
+                  <Txt bold>{it.quantity > 1 ? `${it.quantity}× ` : ""}{FINISH_LABEL[it.finish] ?? it.finish}{it.stamp ? ` · ${it.stamp}` : ""} · {it.is_graded ? `${it.grading_company} ${it.grade}` : it.condition} · {it.language.toUpperCase()}</Txt>
+                  <Sub>{value ? `${eur(value.price)} pro Karte` : "kein Preis"} · Eintrag öffnen ›</Sub>
+                </Pressable>
+              ))}
+            </Panel>
+          </>
+        )}
 
         <H>Marktpreise (Cardmarket, alle Zustände gemischt)</H>
         <Panel>
@@ -99,6 +122,7 @@ export default function CardScreen() {
                 </View>
                 {!row ? <Sub style={{ marginTop: 4 }}>Kein Preis vorhanden</Sub> : null}
                 {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (alle Verkäufer)" onPress={() => Linking.openURL(url)} />}
+                {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (nur Deutschland)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype), germanOnly: true })!)} />}
               </View>
             );
           })}

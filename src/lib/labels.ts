@@ -47,7 +47,7 @@ export function variantLabel(v: { finish: string; subtype?: string | null; stamp
 // Links zu Cardmarket (alle Verkäufer) und eBay (verkaufte Artikel)
 export function cardmarketUrl(opts: {
   productId?: number | null; languageCode?: string; condition?: string;
-  reverse?: boolean; firstEd?: boolean;
+  reverse?: boolean; firstEd?: boolean; germanOnly?: boolean;
 }) {
   if (!opts.productId) return null;
   const q = new URLSearchParams({ idProduct: String(opts.productId) });
@@ -55,7 +55,7 @@ export function cardmarketUrl(opts: {
   if (lang) q.set("language", String(lang.cmId));
   const cond = CONDITIONS.find((c) => c.code === opts.condition);
   if (cond) q.set("minCondition", String(cond.cm));
-  // Kein Verkäufer-Länderfilter: Preise unterscheiden sich je nach Herkunft, es sollen alle Verkäufer erscheinen
+  if (opts.germanOnly) q.set("sellerCountry", "7"); // nur Verkäufer aus Deutschland; ohne diese Angabe erscheinen alle Verkäufer
   if (opts.reverse) q.set("isReverseHolo", "Y");
   if (opts.firstEd) q.set("isFirstEd", "Y");
   return `https://www.cardmarket.com/de/Pokemon/Products?${q.toString()}`;
@@ -79,4 +79,44 @@ export function setNative(s: SetNames | null | undefined): string | null {
   if (!s) return null;
   const n = s.name_ja ?? s.name_zh ?? s.name_ko ?? null;
   return n && n !== setTitle(s) ? n : null;
+}
+
+
+// ---------------------------------------------------------------------------
+// Karten-Typen als anklickbare Pills (Tag Team, VMAX, SIR …). Gleiche Definition für Anzeige und Listenabfrage.
+export type Tag = { key: string; label: string; col: "name_en" | "rarity"; op: "like" | "ilike"; pat: string };
+export const TAGS: Tag[] = [
+  { key: "tagteam", label: "Tag Team", col: "name_en", op: "ilike", pat: "% & % GX" },
+  { key: "vmax", label: "VMAX", col: "name_en", op: "like", pat: "% VMAX" },
+  { key: "vstar", label: "VSTAR", col: "name_en", op: "like", pat: "% VSTAR" },
+  { key: "vunion", label: "V-UNION", col: "name_en", op: "like", pat: "% V-UNION" },
+  { key: "v", label: "V", col: "name_en", op: "like", pat: "% V" },
+  { key: "gx", label: "GX", col: "name_en", op: "like", pat: "% GX" },
+  { key: "ex", label: "ex", col: "name_en", op: "like", pat: "% ex" },
+  { key: "exold", label: "EX", col: "name_en", op: "like", pat: "% EX" },
+  { key: "radiant", label: "Radiant", col: "name_en", op: "like", pat: "Radiant %" },
+  { key: "sir", label: "SIR", col: "rarity", op: "ilike", pat: "special illustration rare" },
+  { key: "ir", label: "Illustration Rare", col: "rarity", op: "ilike", pat: "illustration rare" },
+  { key: "hyper", label: "Hyper Rare", col: "rarity", op: "ilike", pat: "hyper rare" },
+  { key: "secret", label: "Secret Rare", col: "rarity", op: "ilike", pat: "secret rare" },
+  { key: "ultra", label: "Ultra Rare / Full Art", col: "rarity", op: "ilike", pat: "ultra rare" },
+  { key: "double", label: "Double Rare", col: "rarity", op: "ilike", pat: "double rare" },
+  { key: "ace", label: "ACE SPEC", col: "rarity", op: "ilike", pat: "ace spec rare" },
+  { key: "amazing", label: "Amazing Rare", col: "rarity", op: "ilike", pat: "amazing rare" },
+  { key: "radiantrare", label: "Radiant Rare", col: "rarity", op: "ilike", pat: "radiant rare" },
+  { key: "shiny", label: "Shiny Rare", col: "rarity", op: "ilike", pat: "shiny rare" },
+  { key: "shinyultra", label: "Shiny Ultra Rare", col: "rarity", op: "ilike", pat: "shiny ultra rare" },
+  { key: "crown", label: "Crown", col: "rarity", op: "ilike", pat: "crown" },
+];
+export const tagByKey = (k: string) => TAGS.find((t) => t.key === k);
+
+function tagMatches(t: Tag, c: { name_en?: string | null; rarity?: string | null }) {
+  const val = t.col === "name_en" ? c.name_en : c.rarity;
+  if (!val) return false;
+  const re = new RegExp("^" + t.pat.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*") + "$", t.op === "ilike" ? "i" : "");
+  return re.test(val.trim());
+}
+export function cardTags(c: { name_en?: string | null; rarity?: string | null }): Tag[] {
+  const hit = TAGS.filter((t) => tagMatches(t, c));
+  return hit.some((t) => t.key === "tagteam") ? hit.filter((t) => t.key !== "gx") : hit;
 }
