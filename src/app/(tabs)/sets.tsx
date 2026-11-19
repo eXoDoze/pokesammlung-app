@@ -31,6 +31,7 @@ export default function Sets() {
 
   const [sets, setSets] = useState<SetRow[]>([]);
   const [mine, setMine] = useState<Map<string, number>>(new Map());
+  const [mineCards, setMineCards] = useState<Map<string, { id: string; label: string; hay: string }[]>>(new Map());
   const [q, setQ] = useState("");
   const [region, setRegion] = useState("all");
   const [series, setSeries] = useState("all");
@@ -51,20 +52,28 @@ export default function Sets() {
   }, []);
 
   useFocusEffect(useCallback(() => {
-    if (!active) { setMine(new Map()); return; }
+    if (!active) { setMine(new Map()); setMineCards(new Map()); return; }
     (async () => {
       const per = new Map<string, Set<string>>();
+      const names = new Map<string, { id: string; label: string; hay: string }[]>();
       for (let from = 0; ; from += 1000) {
-        const { data } = await supabase.from("collection_items").select("card_id, cards(set_id)")
+        const { data } = await supabase.from("collection_items").select("card_id, cards(set_id,name_en,name_de,name_ja,name_ko,name_zh,number)")
           .eq("collection_id", active.id).eq("status", "owned").range(from, from + 999);
         for (const r of (data ?? []) as any[]) {
           const sid = r.cards?.set_id; if (!sid) continue;
           if (!per.has(sid)) per.set(sid, new Set());
+          if (!per.get(sid)!.has(r.card_id)) {
+            const c = r.cards;
+            const label = c.name_de ?? c.name_en ?? c.name_ja ?? c.name_zh ?? c.name_ko ?? "";
+            if (!names.has(sid)) names.set(sid, []);
+            names.get(sid)!.push({ id: r.card_id, label: `${label}${c.number ? ` #${c.number}` : ""}`, hay: [c.name_en, c.name_de, c.name_ja, c.name_ko, c.name_zh, c.number].filter(Boolean).join(" ").toLowerCase() });
+          }
           per.get(sid)!.add(r.card_id);
         }
         if (!data || data.length < 1000) break;
       }
       setMine(new Map([...per].map(([k, v]) => [k, v.size])));
+      setMineCards(names);
     })();
   }, [active]));
 
@@ -81,8 +90,9 @@ export default function Sets() {
     const s = q.trim().toLowerCase();
     return byRegion.filter((x) =>
       (series === "all" || (x.series ?? "Sonstige") === series) && (!onlyMine || mine.has(x.id)) &&
-      (!s || [x.name_en, x.name_de, x.name_ja, x.name_ko, x.name_zh, x.series, x.id].some((n) => n?.toLowerCase().includes(s))));
-  }, [byRegion, series, onlyMine, mine, q]);
+      (!s || [x.name_en, x.name_de, x.name_ja, x.name_ko, x.name_zh, x.series, x.id].some((n) => n?.toLowerCase().includes(s))
+        || (mineCards.get(x.id) ?? []).some((c) => c.hay.includes(s))));
+  }, [byRegion, series, onlyMine, mine, mineCards, q]);
   const total = sets.filter((x) => mine.has(x.id)).length;
 
   return (
@@ -93,7 +103,7 @@ export default function Sets() {
           <Dropdown label="Serie" value={series} options={seriesOptions} onChange={setSeries} />
         </View>
         <View style={{ marginTop: 10 }}>
-          <Field label="" value={q} onChangeText={setQ} placeholder="Set suchen, z. B. 151, Evolutions, Gem Pack" />
+          <Field label="" value={q} onChangeText={setQ} placeholder="Set oder eine Karte aus deiner Sammlung suchen" />
         </View>
         <Row>
           <Chip label={`Nur Sets mit meinen Karten${total ? ` (${total})` : ""}`} on={onlyMine} onPress={() => setOnlyMine(!onlyMine)} />
@@ -127,6 +137,13 @@ export default function Sets() {
                 <View style={{ padding: 10, minHeight: 64 }}>
                   <Text numberOfLines={2} style={{ color: t.text, fontSize: 14, fontWeight: "700" }}>{setTitle(s, s.id)}</Text>
                   {setNative(s) ? <Text numberOfLines={1} style={{ color: t.sub, fontSize: 11, marginTop: 1 }}>{setNative(s)}</Text> : null}
+                  {(() => {
+                    const k = q.trim().toLowerCase();
+                    if (!k) return null;
+                    if ([s.name_en, s.name_de, s.name_ja, s.name_ko, s.name_zh, s.series, s.id].some((n) => n?.toLowerCase().includes(k))) return null;
+                    const hit = (mineCards.get(s.id) ?? []).filter((c) => c.hay.includes(k));
+                    return hit.length ? <Text numberOfLines={2} style={{ color: t.accent, fontSize: 11, marginTop: 3 }}>Deine Karte: {hit.slice(0, 2).map((c) => c.label).join(", ")}{hit.length > 2 ? ` +${hit.length - 2}` : ""}</Text> : null;
+                  })()}
                   <Text style={{ color: t.sub, fontSize: 12, marginTop: 3 }}>{[s.release_date?.slice(0, 4), s.card_count ? `${s.card_count} Karten` : null].filter(Boolean).join(" · ")}</Text>
                 </View>
                 {have > 0 && (

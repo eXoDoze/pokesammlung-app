@@ -78,7 +78,7 @@ export default function Suche() {
         keyboardShouldPersistTaps="handled" onEndReached={more} onEndReachedThreshold={0.6}
         initialNumToRender={12} windowSize={7}
         ListEmptyComponent={<View><Empty text={hint} />{q.trim().length >= 2 && !busy ? <Btn title="Nicht gefunden? Eigene Karte anlegen" kind="ghost" onPress={() => router.push({ pathname: "/custom-card", params: { name: q.trim() } })} /> : null}</View>}
-        ListFooterComponent={busy && rows.length > 0 ? <ActivityIndicator color={t.accent} style={{ marginVertical: 16 }} /> : (rows.length > 0 && done ? <View style={{ alignSelf: "center", width: inner }}><Btn title="Karte fehlt? Eigene Karte anlegen" kind="ghost" onPress={() => router.push({ pathname: "/custom-card", params: { name: q.trim() } })} /></View> : null)}
+        ListFooterComponent={busy && rows.length > 0 ? <ActivityIndicator color={t.accent} style={{ marginVertical: 16 }} /> : (rows.length > 0 && done ? <View style={{ alignSelf: "center", width: inner }}><Btn title="Karte fehlt? Eigene Karte anlegen" kind="ghost" onPress={() => router.push({ pathname: "/custom-card", params: { name: q.trim() } })} /></View> : undefined)}
         renderItem={({ item: h }) => {
           const hue = hueFor(h.set_id);
           return (

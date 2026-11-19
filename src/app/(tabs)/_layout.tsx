@@ -6,7 +6,7 @@ import { useTheme } from "../../lib/theme";
 
 type IconName = React.ComponentProps<typeof Ionicons>["name"];
 const icon = (on: IconName, off: IconName) =>
-  ({ color, focused, size }: { color: string; focused: boolean; size: number }) =>
+  ({ color, focused, size }: { color: any; focused: boolean; size: number }) =>
     <Ionicons name={focused ? on : off} size={size + 2} color={color} />;
 
 export default function TabsLayout() {

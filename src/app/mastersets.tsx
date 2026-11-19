@@ -2,13 +2,13 @@ import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
 import { FlatList, Pressable, Text, View } from "react-native";
-import { Empty, Screen, Segmented, Sub } from "../components/ui";
+import { Empty, Field, Screen, Segmented, Sub } from "../components/ui";
 import { setTitle } from "../lib/labels";
 import { useApp } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
 
-type Row = { id: string; name: string; have: number; total: number; logo: string | null };
+type Row = { id: string; name: string; have: number; total: number; logo: string | null; hay: string };
 
 export default function Mastersets() {
   const { active } = useApp();
@@ -16,6 +16,7 @@ export default function Mastersets() {
   const t = useTheme();
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(true);
+  const [q, setQ] = useState("");
   const [sort, setSort] = useState<"pct" | "missing">("pct");
 
   useFocusEffect(useCallback(() => {
@@ -38,20 +39,22 @@ export default function Mastersets() {
       for (let i = 0; i < ids.length; i += 100) {
         const { data } = await supabase.from("sets").select("id,name_en,name_de,name_ja,name_ko,name_zh,region,card_count,logo_url,cover_url").in("id", ids.slice(i, i + 100));
         for (const s of (data ?? []) as any[]) {
-          out.push({ id: s.id, name: setTitle(s, s.id), have: per.get(s.id)!.size, total: s.card_count ?? 0, logo: s.logo_url ?? s.cover_url ?? null });
+          out.push({ id: s.id, name: setTitle(s, s.id), have: per.get(s.id)!.size, total: s.card_count ?? 0, logo: s.logo_url ?? s.cover_url ?? null, hay: [s.name_en, s.name_de, s.name_ja, s.name_ko, s.name_zh, s.id].filter(Boolean).join(" ").toLowerCase() });
         }
       }
       setRows(out); setBusy(false);
     })();
   }, [active]));
 
-  const sorted = [...rows].sort((a, b) => sort === "pct"
+  const needle = q.trim().toLowerCase();
+  const sorted = [...rows].filter((r) => !needle || r.hay.includes(needle)).sort((a, b) => sort === "pct"
     ? (b.total ? b.have / b.total : 0) - (a.total ? a.have / a.total : 0)
     : (a.total ? a.total - a.have : 1e9) - (b.total ? b.total - b.have : 1e9));
 
   return (
     <Screen>
       <View style={{ padding: 16, paddingBottom: 8 }}>
+        <Field label="" value={q} onChangeText={setQ} placeholder="Set suchen, z. B. Vending, Arceus, Crystal" autoCorrect={false} />
         <Segmented value={sort} onChange={(v) => setSort(v as "pct" | "missing")} options={[{ value: "pct", label: "Fortschritt" }, { value: "missing", label: "Wenig fehlt" }]} />
       </View>
       <FlatList data={sorted} keyExtractor={(r) => r.id} contentContainerStyle={{ padding: 16, paddingTop: 4 }}
