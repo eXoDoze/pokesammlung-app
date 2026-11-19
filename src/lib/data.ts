@@ -10,7 +10,7 @@ export type Item = {
   language: string; finish: string; is_first_edition: boolean; is_shadowless: boolean;
   stamp: string | null; condition: string; is_graded: boolean; grading_company: string | null;
   grade: number | null; quantity: number; purchase_price: number | null;
-  purchased_at: string | null; notes: string | null; manual_value: number | null;
+  purchased_at: string | null; notes: string | null; manual_value: number | null; prefer_manual?: boolean;
   status?: string; closed_at?: string | null; sold_price?: number | null; closed_note?: string | null;
   cards: {
     id: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null;
@@ -88,6 +88,8 @@ export type Value = { price: number; kind: "zustand" | "markt" | "eigen"; scope?
 
 // Wert je Stück: Zustandspreis, wenn vorhanden; sonst Marktwert (Trend, Mischzustände)
 export function valueOf(item: Item, prices: Map<number, PriceRow>, cond: CondPrice[]): Value {
+  // Wunsch des Nutzers: eigener Wert hat Vorrang (z. B. Misprint, der bei Cardmarket keine eigene Variante hat)
+  if (item.prefer_manual && item.manual_value != null) return { price: Number(item.manual_value), kind: "eigen" };
   const c = cond.find((p) =>
     p.card_id === item.card_id && p.condition === (item.is_graded ? "MT" : item.condition) &&
     p.finish === item.finish && p.is_first_edition === item.is_first_edition &&

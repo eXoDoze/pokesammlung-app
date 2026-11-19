@@ -9,7 +9,7 @@ export type FormValues = {
   stamp: string | null; language: string; condition: string; is_graded: boolean;
   grading_company: string | null; grade: number | null; quantity: number;
   purchase_price: number | null; purchased_at: string | null; notes: string | null;
-  manual_value: number | null;
+  manual_value: number | null; prefer_manual?: boolean;
 };
 
 const num = (s: string) => { const n = Number(s.replace(",", ".")); return s.trim() === "" || !Number.isFinite(n) ? null : n; };
@@ -30,6 +30,7 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
   const [qty, setQty] = useState(String(initial?.quantity ?? 1));
   const [price, setPrice] = useState(initial?.purchase_price != null ? String(initial.purchase_price) : "");
   const [manual, setManual] = useState(initial?.manual_value != null ? String(initial.manual_value) : "");
+  const [preferManual, setPreferManual] = useState(initial?.prefer_manual ?? false);
   const [date, setDate] = useState(initial?.purchased_at ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [busy, setBusy] = useState(false);
@@ -53,7 +54,7 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
         stamp: v?.stamps?.[0] ?? initial?.stamp ?? null,
         language: lang, condition: graded ? "MT" : cond, is_graded: graded,
         grading_company: graded ? (company === "Andere" ? otherCompany.trim() : company) : null, grade: graded ? g : null,
-        quantity: q, purchase_price: num(price), purchased_at: date || null, notes: notes.trim() || null, manual_value: num(manual),
+        quantity: q, purchase_price: num(price), purchased_at: date || null, notes: notes.trim() || null, manual_value: num(manual), prefer_manual: preferManual && num(manual) != null,
       });
     } catch (e: any) { setErr(e.message ?? "Fehler beim Speichern"); }
     setBusy(false);
@@ -91,7 +92,8 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
       )}
       <Field label="Anzahl" value={qty} onChangeText={setQty} keyboardType="number-pad" />
       <Field label="Kaufpreis pro Stück (€)" value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder="optional" />
-      <Field label="Eigener Wert pro Stück (€) – gilt nur, wenn kein Preis vorliegt" value={manual} onChangeText={setManual} keyboardType="decimal-pad" placeholder="optional, z. B. nach einem eBay-Verkauf" />
+      <Field label="Eigener Wert pro Stück (€)" value={manual} onChangeText={setManual} keyboardType="decimal-pad" placeholder="optional, z. B. nach einem eBay-Verkauf" />
+      {num(manual) != null && <Row><Chip label={preferManual ? "✓ Eigenen Wert immer verwenden" : "Nur wenn kein Cardmarket-Preis da ist"} on={preferManual} onPress={() => setPreferManual(!preferManual)} /></Row>}
       <Field label="Kaufdatum (JJJJ-MM-TT)" value={date} onChangeText={setDate} placeholder="optional" />
       <Field label="Notiz" value={notes} onChangeText={setNotes} placeholder="optional" />
       {!!err && <Sub style={{ color: "#b91c1c", marginBottom: 8 }}>{err}</Sub>}
