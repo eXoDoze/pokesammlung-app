@@ -5,6 +5,7 @@ export type Parsed = {
   codes: string[];                              // z. B. XY202, SV5K, DP50
   tokens: string[];                             // mögliche Namensteile, in Lesereihenfolge
   hp?: number;
+  artist?: string;                              // Illustrator aus der Zeile "Illus. …" / "Illustr. …"
 };
 
 const norm = (s: string) => s.normalize("NFKC").replace(/\s+/g, " ").trim();
@@ -38,6 +39,12 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
     if (!codes.includes(c)) codes.push(c);
   }
 
+  let artist: string | undefined;
+  for (const l of clean) {
+    const m = l.match(/\bIllus(?:tr)?\.?\s*[:：]?\s*([\p{L}][\p{L}.'’\- ]{2,40})/iu);
+    if (m) { artist = m[1].replace(/\s+(?:\d.*)$/, "").trim(); break; }
+  }
+
   let hp: number | undefined;
   const h = text.match(/\bHP\s*(\d{2,3})\b/i) ?? text.match(/\b(\d{2,3})\s*HP\b/i);
   if (h) hp = Number(h[1]);
@@ -63,12 +70,12 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
       if (!tokens.includes(tk)) tokens.push(tk);
     }
   }
-  return { numbers, codes, tokens: tokens.slice(0, 6), hp };
+  return { numbers, codes, tokens: tokens.slice(0, 6), hp, artist };
 }
 
 export type Hit = {
   id: string; number: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko: string | null; name_zh: string | null;
-  rarity: string | null; image_url: string | null; set_id: string; set_name: string; region: string; release_date: string | null;
+  artist?: string | null; rarity: string | null; image_url: string | null; set_id: string; set_name: string; region: string; release_date: string | null;
 };
 
 const stripZeros = (n: string) => n.replace(/^0+(?=\d)/, "");
@@ -84,6 +91,10 @@ export function scoreHit(h: Hit, p: Parsed, matchedTokens: number): number {
     if (num && c === num) s += 6;                 // z. B. XY202 = Kartennummer
     const setCode = h.set_id.includes(":") ? h.set_id.split(":")[1].toUpperCase() : h.set_id.toUpperCase();
     if (c === setCode) s += 3;                    // Set-Kürzel auf der Karte
+  }
+  if (p.artist && h.artist) {
+    const a = h.artist.toLowerCase(), b = p.artist.toLowerCase();
+    if (a === b || a.includes(b) || b.includes(a)) s += 4;     // gleicher Illustrator
   }
   return s;
 }

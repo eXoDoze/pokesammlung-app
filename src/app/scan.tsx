@@ -64,6 +64,12 @@ async function findCandidates(p: Parsed): Promise<Cand[]> {
       if (cur) cur.n++; else found.set(h.id, { hit: h, n: 1 });
     }
   });
+  // Illustrator der Kandidaten nachladen (falls vorhanden) und beim Bewerten berücksichtigen
+  const ids = [...found.keys()].slice(0, 300);
+  if (p.artist && ids.length) {
+    const { data } = await supabase.from("cards").select("id, artist").in("id", ids);
+    for (const r of (data ?? []) as any[]) { const f = found.get(r.id); if (f) f.hit.artist = r.artist; }
+  }
   return [...found.values()].map(({ hit, n }) => ({ hit, score: scoreHit(hit, p, n) + (numIds.has(hit.id) ? 12 : 0) })).sort((a, b) => b.score - a.score).slice(0, 12);
 }
 
