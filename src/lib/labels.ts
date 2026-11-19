@@ -64,3 +64,19 @@ export function ebaySoldUrl(nameEn: string, number: string, setName?: string | n
   const q = [nameEn, number, setName].filter(Boolean).join(" ");
   return `https://www.ebay.de/sch/i.html?_nkw=${encodeURIComponent(q)}&LH_Sold=1&LH_Complete=1`;
 }
+
+type SetNames = { name_en?: string | null; name_de?: string | null; name_ja?: string | null; name_ko?: string | null; name_zh?: string | null; region?: string | null };
+/** Asiatische Sets: englischer Name zuerst (lesbar), sonst Landessprache. */
+export function setTitle(s: SetNames | null | undefined, fallback = ""): string {
+  if (!s) return fallback;
+  const asia = s.region && s.region !== "international";
+  return (asia
+    ? s.name_en ?? s.name_de ?? s.name_ja ?? s.name_zh ?? s.name_ko
+    : s.name_de ?? s.name_en ?? s.name_ja ?? s.name_zh ?? s.name_ko) ?? fallback;
+}
+/** Originalname in Schriftzeichen, falls er sich vom Titel unterscheidet. */
+export function setNative(s: SetNames | null | undefined): string | null {
+  if (!s) return null;
+  const n = s.name_ja ?? s.name_zh ?? s.name_ko ?? null;
+  return n && n !== setTitle(s) ? n : null;
+}

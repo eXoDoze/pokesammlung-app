@@ -11,10 +11,11 @@ export type Item = {
   stamp: string | null; condition: string; is_graded: boolean; grading_company: string | null;
   grade: number | null; quantity: number; purchase_price: number | null;
   purchased_at: string | null; notes: string | null; manual_value: number | null;
+  status?: string; closed_at?: string | null; sold_price?: number | null; closed_note?: string | null;
   cards: {
     id: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null;
     number: string; image_url: string | null; set_id: string;
-    sets: { name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null } | null;
+    sets: { name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null; region?: string | null } | null;
     card_variants: Variant[];
   };
 };
@@ -30,13 +31,13 @@ export type CondPrice = {
 };
 
 export const ITEM_SELECT =
-  "*, cards(id,name_en,name_de,name_ja,name_ko,name_zh,number,image_url,set_id, sets(name_en,name_de,name_ja,name_ko,name_zh), card_variants(id,finish,subtype,stamps,cardmarket_product_id))";
+  "*, cards(id,name_en,name_de,name_ja,name_ko,name_zh,number,image_url,set_id, sets(name_en,name_de,name_ja,name_ko,name_zh,region), card_variants(id,finish,subtype,stamps,cardmarket_product_id))";
 
-export async function fetchItems(collectionId: string): Promise<Item[]> {
+export async function fetchItems(collectionId: string, statuses: string[] = ["owned"]): Promise<Item[]> {
   const out: Item[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await supabase.from("collection_items").select(ITEM_SELECT)
-      .eq("collection_id", collectionId).order("created_at", { ascending: false })
+      .eq("collection_id", collectionId).in("status", statuses).order("created_at", { ascending: false })
       .range(from, from + 999);
     if (error) throw new Error(error.message);
     out.push(...((data ?? []) as any));

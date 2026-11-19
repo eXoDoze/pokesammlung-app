@@ -1,3 +1,4 @@
+import { setNative, setTitle } from "../../lib/labels";
 import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
@@ -19,7 +20,6 @@ const REGIONS = [
 ];
 const COLS = 2;
 const GAP = 12;
-const setTitle = (s: SetRow) => s.name_de ?? s.name_en ?? s.name_ja ?? s.name_zh ?? s.name_ko ?? s.id;
 
 export default function Sets() {
   const router = useRouter();
@@ -56,7 +56,7 @@ export default function Sets() {
       const per = new Map<string, Set<string>>();
       for (let from = 0; ; from += 1000) {
         const { data } = await supabase.from("collection_items").select("card_id, cards(set_id)")
-          .eq("collection_id", active.id).range(from, from + 999);
+          .eq("collection_id", active.id).eq("status", "owned").range(from, from + 999);
         for (const r of (data ?? []) as any[]) {
           const sid = r.cards?.set_id; if (!sid) continue;
           if (!per.has(sid)) per.set(sid, new Set());
@@ -125,7 +125,8 @@ export default function Sets() {
                   )}
                 </View>
                 <View style={{ padding: 10, minHeight: 64 }}>
-                  <Text numberOfLines={2} style={{ color: t.text, fontSize: 14, fontWeight: "700" }}>{setTitle(s)}</Text>
+                  <Text numberOfLines={2} style={{ color: t.text, fontSize: 14, fontWeight: "700" }}>{setTitle(s, s.id)}</Text>
+                  {setNative(s) ? <Text numberOfLines={1} style={{ color: t.sub, fontSize: 11, marginTop: 1 }}>{setNative(s)}</Text> : null}
                   <Text style={{ color: t.sub, fontSize: 12, marginTop: 3 }}>{[s.release_date?.slice(0, 4), s.card_count ? `${s.card_count} Karten` : null].filter(Boolean).join(" · ")}</Text>
                 </View>
                 {have > 0 && (

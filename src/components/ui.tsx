@@ -15,9 +15,9 @@ export function Sub({ children, style, numberOfLines }: { children: React.ReactN
   const t = useTheme();
   return <Text numberOfLines={numberOfLines} style={[{ color: t.sub, fontSize: 13 }, style]}>{children}</Text>;
 }
-export function Txt({ children, style, bold }: { children: React.ReactNode; style?: any; bold?: boolean }) {
+export function Txt({ children, style, bold, numberOfLines }: { children: React.ReactNode; style?: any; bold?: boolean; numberOfLines?: number }) {
   const t = useTheme();
-  return <Text style={[{ color: t.text, fontSize: 15 }, bold && { fontWeight: "700" }, style]}>{children}</Text>;
+  return <Text numberOfLines={numberOfLines} style={[{ color: t.text, fontSize: 15 }, bold && { fontWeight: "700" }, style]}>{children}</Text>;
 }
 export function Btn({ title, onPress, kind = "primary", disabled, busy }: {
   title: string; onPress: () => void; kind?: "primary" | "ghost" | "danger"; disabled?: boolean; busy?: boolean;
@@ -57,7 +57,7 @@ export function Field(props: TextInputProps & { label: string }) {
 }
 export function Panel({ children, style }: { children: React.ReactNode; style?: any }) {
   const t = useTheme();
-  return <View style={[{ backgroundColor: t.card, borderRadius: 18, padding: 14, borderColor: t.line, borderWidth: StyleSheet.hairlineWidth }, style]}>{children}</View>;
+  return <View style={[{ backgroundColor: t.card, borderRadius: 20, padding: 16, borderColor: t.line, borderWidth: 1 }, style]}>{children}</View>;
 }
 export function Thumb({ uri, w = 48 }: { uri?: string | null; w?: number }) {
   const t = useTheme();
@@ -98,6 +98,42 @@ export function Dropdown({ label, value, options, onChange, flex }: { label: str
           </View>
         </Pressable>
       </Modal>
+    </View>
+  );
+}
+
+// Kleines Etikett (z. B. Zustand, Sprache, Ausführung)
+export function Pill({ label, tone }: { label: string; tone?: "accent" | "good" | "bad" | "muted" }) {
+  const t = useTheme();
+  const bg = tone === "good" ? t.good + "26" : tone === "bad" ? t.bad + "26" : tone === "accent" ? t.accent + "33" : t.chip;
+  const fg = tone === "good" ? t.good : tone === "bad" ? t.bad : tone === "accent" ? t.accent : t.sub;
+  return (
+    <View style={{ backgroundColor: bg, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, marginRight: 5, marginTop: 4 }}>
+      <Text style={{ color: fg, fontSize: 11, fontWeight: "700" }}>{label}</Text>
+    </View>
+  );
+}
+// Kennzahl-Kachel
+export function Stat({ label, value, color, flex = 1 }: { label: string; value: string; color?: string; flex?: number }) {
+  const t = useTheme();
+  return (
+    <View style={{ flex, backgroundColor: t.card2, borderRadius: 14, padding: 12, borderColor: t.line, borderWidth: StyleSheet.hairlineWidth }}>
+      <Text style={{ color: t.sub, fontSize: 11 }}>{label}</Text>
+      <Text numberOfLines={1} adjustsFontSizeToFit style={{ color: color ?? t.text, fontSize: 17, fontWeight: "800", marginTop: 3 }}>{value}</Text>
+    </View>
+  );
+}
+// Umschalter (z. B. 7 Tage / 30 Tage)
+export function Segmented({ options, value, onChange }: { options: { value: string; label: string }[]; value: string; onChange: (v: string) => void }) {
+  const t = useTheme();
+  return (
+    <View style={{ flexDirection: "row", backgroundColor: t.chip, borderRadius: 12, padding: 3, alignSelf: "flex-start" }}>
+      {options.map((o) => (
+        <Pressable key={o.value} onPress={() => onChange(o.value)}
+          style={{ paddingVertical: 7, paddingHorizontal: 16, borderRadius: 10, backgroundColor: o.value === value ? t.accent : "transparent" }}>
+          <Text style={{ color: o.value === value ? t.accentText : t.sub, fontWeight: "700", fontSize: 13 }}>{o.label}</Text>
+        </Pressable>
+      ))}
     </View>
   );
 }

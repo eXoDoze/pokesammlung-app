@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, View, useWindowDimensions } from "react-native";
 import { Chip, Empty, Row, Screen, Sub, Txt } from "../../components/ui";
 import { Variant, pickVariant } from "../../lib/data";
-import { FINISH_LABEL, cardName, variantLabel } from "../../lib/labels";
+import { FINISH_LABEL, cardName, variantLabel, setTitle } from "../../lib/labels";
 import { useApp } from "../../lib/session";
 import { supabase } from "../../lib/supabase";
 import { useTheme } from "../../lib/theme";
@@ -30,8 +30,8 @@ export default function SetScreen() {
 
   useEffect(() => {
     (async () => {
-      const s = await supabase.from("sets").select("name_de,name_en,name_ja,name_zh,name_ko").eq("id", id).single();
-      setSetName(s.data?.name_de ?? s.data?.name_en ?? s.data?.name_ja ?? s.data?.name_zh ?? s.data?.name_ko ?? id);
+      const s = await supabase.from("sets").select("name_de,name_en,name_ja,name_zh,name_ko,region").eq("id", id).single();
+      setSetName(setTitle(s.data, id));
       const c = await supabase.from("cards").select("id,number,name_en,name_de,name_ja,name_ko,name_zh,image_url,card_variants(id,finish,subtype,stamps,cardmarket_product_id)").eq("set_id", id).limit(1000);
       setCards(((c.data ?? []) as any as Card[]).sort((a, b) => natural(a.number, b.number)));
     })();
@@ -40,7 +40,7 @@ export default function SetScreen() {
   const loadOwned = useCallback(async () => {
     if (!active || cards.length === 0) return;
     const { data } = await supabase.from("collection_items").select("card_id,variant_id,finish,is_first_edition,is_shadowless")
-      .eq("collection_id", active.id).in("card_id", cards.map((c) => c.id));
+      .eq("collection_id", active.id).eq("status", "owned").in("card_id", cards.map((c) => c.id));
     setOwned((data ?? []) as any);
   }, [active, cards]);
   useFocusEffect(useCallback(() => { loadOwned(); }, [loadOwned]));

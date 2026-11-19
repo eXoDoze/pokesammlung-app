@@ -5,7 +5,7 @@ import { Alert, Linking, ScrollView, View } from "react-native";
 import { ItemForm, FormValues } from "../../components/ItemForm";
 import { Btn, H, Panel, Pill, Screen, Stat, Sub, Txt } from "../../components/ui";
 import { PriceRow, Variant, jaLinkProduct, latestPrices } from "../../lib/data";
-import { cardName, cardmarketUrl, ebaySoldUrl, eur, isFirstEd, variantLabel } from "../../lib/labels";
+import { cardName, cardmarketUrl, ebaySoldUrl, eur, isFirstEd, variantLabel, setTitle } from "../../lib/labels";
 import { useApp } from "../../lib/session";
 import { supabase } from "../../lib/supabase";
 import { hueFor } from "../../lib/theme";
@@ -43,7 +43,7 @@ export default function CardScreen() {
   }, [id]);
 
   if (!card) return <Screen><Sub style={{ padding: 16 }}>Lade …</Sub></Screen>;
-  const setName = card.sets?.name_de ?? card.sets?.name_en ?? card.sets?.name_ja ?? card.sets?.name_zh ?? card.sets?.name_ko ?? "";
+  const setName = setTitle(card.sets as any);
 
   const save = async (v: FormValues) => {
     if (!active) throw new Error("Keine Sammlung gewählt.");
