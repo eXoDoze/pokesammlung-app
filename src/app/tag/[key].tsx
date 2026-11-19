@@ -1,7 +1,7 @@
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { FlatList, Pressable, View, useWindowDimensions } from "react-native";
-import { CardImg, Empty, Field, Screen, Sub, Txt } from "../../components/ui";
+import { CardImg, Chip, Empty, Field, Row, Screen, Sub, Txt } from "../../components/ui";
 import { cardName, setTitle, tagByKey } from "../../lib/labels";
 import { supabase } from "../../lib/supabase";
 
@@ -16,14 +16,16 @@ export default function TagScreen() {
   const [rows, setRows] = useState<Row[]>([]);
   const [busy, setBusy] = useState(true);
   const [q, setQ] = useState("");
+  const [region, setRegion] = useState<string>("international");   // Sprachfilter: Karten nach Herkunft des Sets
 
   useEffect(() => {
     if (!tag) return;
     (async () => {
       setBusy(true);
       let query = supabase.from("cards")
-        .select("id,number,name_en,name_de,name_ja,name_ko,name_zh,image_url,sets(name_en,name_de,name_ja,name_ko,name_zh,region,release_date)")
+        .select("id,number,name_en,name_de,name_ja,name_ko,name_zh,image_url,sets!inner(name_en,name_de,name_ja,name_ko,name_zh,region,release_date)")
         .limit(600);
+      if (region !== "all") query = query.eq("sets.region", region);
       const pats = Array.isArray(tag.pat) ? tag.pat : [tag.pat];
       if (pats.length === 1) query = tag.op === "like" ? query.like(tag.col, pats[0]) : query.ilike(tag.col, pats[0]);
       else query = query.or(pats.map((p) => `${tag.col}.${tag.op}.${p.replace(/%/g, "*")}`).join(","));
@@ -31,7 +33,7 @@ export default function TagScreen() {
       const list = ((data ?? []) as any as Row[]).sort((a, b) => String(b.sets?.release_date ?? "").localeCompare(String(a.sets?.release_date ?? "")));
       setRows(list); setBusy(false);
     })();
-  }, [key]);
+  }, [key, region]);
 
   const needle = q.trim().toLowerCase();
   const shown = useMemo(() => rows.filter((r) => !needle || [r.name_en, r.name_de, r.name_ja, r.name_ko, r.name_zh, r.number, setTitle(r.sets)].filter(Boolean).join(" ").toLowerCase().includes(needle)), [rows, needle]);
@@ -44,6 +46,11 @@ export default function TagScreen() {
       <Stack.Screen options={{ title: tag?.label ?? "Typ" }} />
       <View style={{ padding: 16, paddingBottom: 8 }}>
         <Txt bold>{busy ? "Lade …" : `${shown.length} Karten`}{rows.length >= 600 ? " (die ersten 600)" : ""}</Txt>
+        <Row>
+          {[["all", "Alle"], ["international", "Englisch/Deutsch"], ["japan", "Japanisch"], ["korea", "Koreanisch"], ["china", "Chinesisch"], ["taiwan", "Taiwan"]].map(([k, l]) => (
+            <Chip key={k} label={l} on={region === k} onPress={() => setRegion(k)} />
+          ))}
+        </Row>
         <Field label="" value={q} onChangeText={setQ} placeholder="Filtern: Name, Nummer oder Set" autoCorrect={false} />
       </View>
       <FlatList data={shown} keyExtractor={(r) => r.id} numColumns={cols} key={cols}

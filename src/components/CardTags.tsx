@@ -10,7 +10,7 @@ export function CardTags({ card }: { card: { name_en?: string | null; rarity?: s
   return (
     <>
       {cardTags(card).map((t) => (
-        <Pressable key={t.key} onPress={() => router.push(`/tag/${t.key}`)}>
+        <Pressable key={t.key} onPress={() => router.push(`/tag/${t.key}` as any)}>
           <Pill label={`${t.label} ›`} tone="accent" />
         </Pressable>
       ))}
