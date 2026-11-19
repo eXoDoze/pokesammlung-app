@@ -83,9 +83,6 @@ export default function SetScreen() {
         renderItem={({ item: e }) => (
           <Pressable onPress={() => router.push(`/card/${encodeURIComponent(e.card.id)}`)} style={{ width: w, marginBottom: 10, opacity: e.owned ? 1 : 0.45 }}>
             <CardImg uri={e.card.image_url} width={w} height={w * 1.4} label={cardName(e.card)} sub={e.card.number} />
-            <Sub numberOfLines={1}>{e.card.number}</Sub>
-                </View>
-              )}
             <Sub numberOfLines={1}>{e.card.number} {cardName(e.card)}</Sub>
             {e.variant && <Sub numberOfLines={1}>{variantLabel(e.variant)}</Sub>}
             {e.owned && <Txt style={{ position: "absolute", top: 2, right: 4 }}>✅</Txt>}
