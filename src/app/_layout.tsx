@@ -27,6 +27,7 @@ function Gate() {
       <Stack.Screen name="card/[id]" options={{ title: "Karte" }} />
       <Stack.Screen name="item/[id]" options={{ title: "Sammlungseintrag" }} />
       <Stack.Screen name="bestand" options={{ title: "Sammlung" }} />
+      <Stack.Screen name="scan" options={{ title: "Karte scannen" }} />
       <Stack.Screen name="mastersets" options={{ title: "Mastersets" }} />
       <Stack.Screen name="custom-card" options={{ title: "Eigene Karte anlegen" }} />
     </Stack>

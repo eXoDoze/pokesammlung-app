@@ -31,6 +31,7 @@ export default function SammlungHub() {
   const tiles: Tile[] = [
     { key: "bestand", icon: "albums", title: "Sammlung", sub: `${stat.cards} Karten · ${eur(stat.value)}`, href: "/bestand" },
     { key: "master", icon: "ribbon", title: "Mastersets", sub: "Fortschritt pro Set", href: "/mastersets" },
+    { key: "scan", icon: "scan", title: "Karte scannen", sub: "Mit der Kamera hinzufügen", href: "/scan" },
     { key: "binder", icon: "book", title: "Binder", sub: "Kommt als Nächstes", soon: true },
     { key: "closed", icon: "swap-horizontal", title: "Verkauft & getauscht", sub: `${stat.closed} Einträge`, href: "/bestand?view=closed" },
   ];

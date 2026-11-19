@@ -67,6 +67,7 @@ export default function Suche() {
     <Screen>
       <View style={{ padding: 16, paddingBottom: 8, maxWidth: 760, width: "100%", alignSelf: "center" }}>
         <Field label="" value={q} onChangeText={setQ} placeholder="Pokémon suchen (Deutsch, Englisch, Japanisch …)" autoCorrect={false} autoCapitalize="none" />
+        <Btn kind="ghost" title="📷 Karte scannen" onPress={() => router.push("/scan")} />
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
           <Dropdown label="Sprache" value={region} options={REGIONS} onChange={setRegion} />
           <Text style={{ color: t.sub, fontSize: 12, paddingBottom: 12, minWidth: 90, textAlign: "right" }}>{rows.length ? `${total.toLocaleString("de-DE")} Karten` : ""}</Text>

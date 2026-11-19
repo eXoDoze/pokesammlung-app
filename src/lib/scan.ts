@@ -1,0 +1,77 @@
+// Auswertung der Texterkennung (OCR) einer Pokémon-Karte. Reine Funktionen, ohne Kamera/Netz – leicht zu testen.
+
+export type Parsed = {
+  numbers: { num: string; total?: string }[];   // z. B. 025/165 oder 124/S-P
+  codes: string[];                              // z. B. XY202, SV5K, DP50
+  tokens: string[];                             // mögliche Namensteile, in Lesereihenfolge
+  hp?: number;
+};
+
+const norm = (s: string) => s.normalize("NFKC").replace(/\s+/g, " ").trim();
+const CJK = /[぀-ヿ㐀-鿿가-힯]/;
+const STOP = new Set([
+  "basic", "stage", "stage1", "stage2", "evolves", "from", "pokemon", "pokémon", "trainer", "item", "supporter", "energy",
+  "weakness", "resistance", "retreat", "cost", "illus", "illus.", "ability", "attack", "when", "your", "this", "that", "the", "and", "for", "you", "may",
+  "hp", "lv", "no", "ex", "gx", "vmax", "vstar", "v", "break", "prism", "star", "tera",
+  "ポケモン", "トレーナー", "エネルギー", "たね", "進化", "進化前", "弱点", "抵抗力", "にげる", "ワザ", "特性", "グッズ", "サポート", "スタジアム",
+  "弱点", "抵抗", "撤退", "宝可梦", "训练家", "能量", "포켓몬", "트레이너", "에너지",
+]);
+
+export function parseOcr(lines: string[]): Parsed {
+  const clean = lines.map(norm).filter(Boolean);
+  const text = clean.join("\n");
+  const numbers: Parsed["numbers"] = [];
+  const codes: string[] = [];
+
+  for (const m of text.matchAll(/\b0*(\d{1,3})\s*\/\s*0*(\d{1,3})\b/g)) numbers.push({ num: m[1], total: m[2] });
+  for (const m of text.matchAll(/\b0*(\d{1,3})\s*\/\s*([A-Z]{1,5}(?:-[A-Z]{1,3})?-?P)\b/gi)) numbers.push({ num: m[1], total: m[2].toUpperCase() });
+  for (const m of text.matchAll(/\b([A-Z]{1,5}\d{1,3}[a-zA-Z]?)\b/g)) {
+    const c = m[1].toUpperCase();
+    if (/^(HP|LV)\d/.test(c)) continue;
+    if (!codes.includes(c)) codes.push(c);
+  }
+
+  let hp: number | undefined;
+  const h = text.match(/\bHP\s*(\d{2,3})\b/i) ?? text.match(/\b(\d{2,3})\s*HP\b/i);
+  if (h) hp = Number(h[1]);
+
+  // Namensteile aus den ersten Zeilen (Kartenkopf), ohne Zahlen/Zusätze
+  const tokens: string[] = [];
+  for (const line of clean.slice(0, 8)) {
+    const cleaned = line
+      .replace(/\bHP\s*\d+\b|\b\d+\s*HP\b|\bLV\.?\s*\d+\b|\bLv\.?\s*\d+\b/gi, " ")
+      .replace(/[0-9０-９]+/g, " ")
+      .replace(/[^\p{L}\p{N}'’.\- ]/gu, " ");
+    for (const raw of cleaned.split(/\s+/)) {
+      const tk = raw.replace(/^[-.']+|[-.']+$/g, "");
+      if (!tk) continue;
+      const len = CJK.test(tk) ? 2 : 3;
+      if (tk.length < len) continue;
+      if (STOP.has(tk.toLowerCase())) continue;
+      if (!tokens.includes(tk)) tokens.push(tk);
+    }
+  }
+  return { numbers, codes, tokens: tokens.slice(0, 6), hp };
+}
+
+export type Hit = {
+  id: string; number: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko: string | null; name_zh: string | null;
+  rarity: string | null; image_url: string | null; set_id: string; set_name: string; region: string; release_date: string | null;
+};
+
+const stripZeros = (n: string) => n.replace(/^0+(?=\d)/, "");
+
+/** Bewertet einen Treffer gegen das OCR-Ergebnis. Höher = wahrscheinlicher. */
+export function scoreHit(h: Hit, p: Parsed, matchedTokens: number): number {
+  let s = matchedTokens * 3;
+  const num = stripZeros(String(h.number ?? "").split("/")[0].toUpperCase());
+  for (const n of p.numbers) {
+    if (num && stripZeros(n.num) === num) s += 5;
+  }
+  for (const c of p.codes) {
+    if (num && c === num) s += 6;                 // z. B. XY202 = Kartennummer
+    const setCode = h.set_id.includes(":") ? h.set_id.split(":")[1].toUpperCase() : h.set_id.toUpperCase();
+    if (c === setCode) s += 3;                    // Set-Kürzel auf der Karte
+  }
+  return s;
+}
