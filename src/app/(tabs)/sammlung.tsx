@@ -14,7 +14,7 @@ export default function SammlungHub() {
   const { active } = useApp();
   const router = useRouter();
   const t = useTheme();
-  const [stat, setStat] = useState({ cards: 0, value: 0, closed: 0 });
+  const [stat, setStat] = useState({ cards: 0, value: 0, closed: 0, wish: 0 });
 
   useFocusEffect(useCallback(() => {
     if (!active) return;
@@ -24,12 +24,14 @@ export default function SammlungHub() {
       let cards = 0, value = 0;
       for (const i of owned) { cards += i.quantity; const v = vals.get(i.id); if (v) value += v.price * i.quantity; }
       const closed = await fetchItems(active.id, ["sold", "traded"]);
-      setStat({ cards, value, closed: closed.length });
+      const wish = await fetchItems(active.id, ["wishlist"]);
+      setStat({ cards, value, closed: closed.length, wish: wish.length });
     })();
   }, [active]));
 
   const tiles: Tile[] = [
     { key: "bestand", icon: "albums", title: "Sammlung", sub: `${stat.cards} Karten · ${eur(stat.value)}`, href: "/bestand" },
+    { key: "wish", icon: "heart", title: "Wunschliste", sub: `${stat.wish} Karten`, href: "/wunschliste" },
     { key: "master", icon: "ribbon", title: "Mastersets", sub: "Fortschritt pro Set", href: "/mastersets" },
     { key: "scan", icon: "scan", title: "Karte scannen", sub: "Mit der Kamera hinzufügen", href: "/scan" },
     { key: "binder", icon: "book", title: "Binder", sub: "Kommt als Nächstes", soon: true },

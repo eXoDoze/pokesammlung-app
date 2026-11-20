@@ -4,9 +4,9 @@ import React, { useEffect, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, View } from "react-native";
 import { CardTags } from "../../components/CardTags";
 import { ItemForm, FormValues } from "../../components/ItemForm";
-import { Btn, H, Panel, Pill, Screen, Stat, Sub, Thumb, Txt } from "../../components/ui";
+import { Btn, Chip, H, Panel, Pill, Row, Screen, Stat, Sub, Txt } from "../../components/ui";
 import { CondPrice, PriceRow, Variant, jaLinkProduct, latestCondPrices, latestPrices, ITEM_SELECT, Item, priceGuideFits, valuesForItems, Value } from "../../lib/data";
-import { CONDITIONS, FINISH_LABEL, cardName, cardmarketUrl, ebaySoldUrl, eur, isFirstEd, variantLabel, setTitle } from "../../lib/labels";
+import { CONDITIONS, FINISH_LABEL, cardName, cardmarketUrl, ebaySoldUrl, eur, isFirstEd, isShadowless, variantLabel, setTitle } from "../../lib/labels";
 import { useApp } from "../../lib/session";
 import { supabase } from "../../lib/supabase";
 import { hueFor } from "../../lib/theme";
@@ -18,9 +18,6 @@ type Card = {
   card_variants: Variant[];
 };
 
-type Version = { id: string; number: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko: string | null; name_zh: string | null; rarity: string | null; image_url: string | null; set_name: string; region: string; match: string };
-const REGION_NAME: Record<string, string> = { international: "Deutsch / Englisch", japan: "Japanisch", korea: "Koreanisch", china: "Chinesisch", taiwan: "Taiwan" };
-
 export default function CardScreen() {
   const { cardId: raw } = useLocalSearchParams<{ cardId: string }>();
   const id = decodeURIComponent(String(raw));
@@ -30,7 +27,11 @@ export default function CardScreen() {
   const [prices, setPrices] = useState<Map<number, PriceRow>>(new Map());
   const [lang, setLang] = useState("de");
   const [jaProduct, setJaProduct] = useState<number | null>(null);
-  const [versions, setVersions] = useState<Version[]>([]);
+  const [versionCount, setVersionCount] = useState(0);
+  const [wish, setWish] = useState<Item | null>(null);
+  const [liveCond, setLiveCond] = useState("NM");
+  const [liveBusy, setLiveBusy] = useState<string | null>(null);
+  const [liveMsg, setLiveMsg] = useState<Record<string, string>>({});
   const [cond, setCond] = useState<CondPrice[]>([]);
   const [mine, setMine] = useState<{ item: Item; value: Value }[]>([]);
 
@@ -43,12 +44,14 @@ export default function CardScreen() {
       setCard(c);
       setJaProduct(await jaLinkProduct(id));
       setCond(await latestCondPrices([id]));
-      supabase.rpc("card_versions", { p_card_id: id }).then(({ data: v }) => setVersions((v ?? []) as Version[]));
+      supabase.rpc("card_versions", { p_card_id: id }).then(({ data: v }) => setVersionCount((v ?? []).length));
       if (active) {
         const own = await supabase.from("collection_items").select(ITEM_SELECT).eq("collection_id", active.id).eq("status", "owned").eq("card_id", id);
         const items = (own.data ?? []) as any as Item[];
         const vals = items.length ? await valuesForItems(items) : new Map();
         setMine(items.map((it) => ({ item: it, value: vals.get(it.id) ?? null })));
+        const w = await supabase.from("collection_items").select(ITEM_SELECT).eq("collection_id", active.id).eq("status", "wishlist").eq("card_id", id).limit(1);
+        setWish(((w.data ?? [])[0] ?? null) as any as Item | null);
       }
       if (c) {
         setLang(c.sets?.region === "japan" ? "ja" : "de");
@@ -66,6 +69,45 @@ export default function CardScreen() {
     if (error) throw new Error(error.message);
     Alert.alert("Hinzugefügt", `${cardName(card)} liegt jetzt in „${active.name}“.`);
     router.back();
+  };
+
+  const liveLang = card.sets?.region === "japan" ? "ja" : card.sets?.region === "korea" ? "ko" : card.sets?.region === "china" ? "zh-cn" : card.sets?.region === "taiwan" ? "zh-tw" : "de";
+
+  const loadLive = async (v: Variant) => {
+    setLiveBusy(v.id);
+    setLiveMsg((m) => ({ ...m, [v.id]: "" }));
+    try {
+      const { data, error } = await supabase.functions.invoke("live-price", {
+        body: { card_id: card.id, variant_id: v.id, language: liveLang, condition: liveCond, finish: v.finish, first_ed: isFirstEd(v.subtype) },
+      });
+      if (error) throw new Error(error.message);
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const d = data as { all: number | null; de: number | null; offers: number; cached?: boolean };
+      setCond(await latestCondPrices([id]));
+      const label = CONDITIONS.find((c) => c.code === liveCond)?.label ?? liveCond;
+      setLiveMsg((m) => ({ ...m, [v.id]: d.all == null
+        ? `Zustand ${label}: aktuell kein Angebot auf Cardmarket.`
+        : `${label}: günstigstes Angebot ${eur(d.all)} (alle Verkäufer, ${d.offers} Angebote)${d.de != null ? ` · ${eur(d.de)} (nur Deutschland)` : ""}${d.cached ? " · vor wenigen Minuten geladen" : " · gerade geladen"}` }));
+    } catch (e: any) {
+      setLiveMsg((m) => ({ ...m, [v.id]: `Preis konnte nicht geladen werden: ${e.message ?? e}` }));
+    }
+    setLiveBusy(null);
+  };
+
+  const addWish = async () => {
+    if (!active) return Alert.alert("Keine Sammlung gewählt");
+    const v = card.card_variants[0];
+    const { data, error } = await supabase.from("collection_items").insert({
+      collection_id: active.id, card_id: card.id, status: "wishlist", quantity: 1, condition: "NM", language: lang, is_graded: false,
+      variant_id: v?.id ?? null, finish: v?.finish ?? "non_holo", is_first_edition: v ? isFirstEd(v.subtype) : false, is_shadowless: v ? isShadowless(v.subtype) : false,
+    }).select(ITEM_SELECT).single();
+    if (error) return Alert.alert("Fehler", error.message);
+    setWish(data as any as Item);
+  };
+  const removeWish = async () => {
+    if (!wish) return;
+    await supabase.from("collection_items").delete().eq("id", wish.id);
+    setWish(null);
   };
 
   return (
@@ -100,23 +142,20 @@ export default function CardScreen() {
           </>
         )}
 
-        {versions.length > 0 && (
-          <>
-            <H>Weitere Versionen (andere Sprache / Set)</H>
+        <View style={{ marginTop: 10 }}>
+          {wish ? (
             <Panel>
-              {versions.map((v) => (
-                <Pressable key={v.id} onPress={() => router.push(`/card/${encodeURIComponent(v.id)}` as any)} style={{ flexDirection: "row", gap: 12, paddingVertical: 8, alignItems: "center" }}>
-                  <Thumb uri={v.image_url} w={44} />
-                  <View style={{ flex: 1 }}>
-                    <Txt bold numberOfLines={1}>{cardName(v as any)}</Txt>
-                    <Sub numberOfLines={1}>{v.set_name}{v.number ? ` · #${v.number}` : ""}{v.rarity && v.rarity !== "None" ? ` · ${v.rarity}` : ""}</Sub>
-                  </View>
-                  <Pill label={REGION_NAME[v.region] ?? v.region} tone={v.region === "international" ? "accent" : undefined} />
-                </Pressable>
-              ))}
+              <Txt bold>♥ Auf deiner Wunschliste</Txt>
+              <Btn kind="ghost" title="Wunschliste öffnen" onPress={() => router.push("/wunschliste" as any)} />
+              <Btn kind="ghost" title="Von der Wunschliste entfernen" onPress={removeWish} />
             </Panel>
-          </>
-        )}
+          ) : (
+            <Btn kind="ghost" title="♡ Auf die Wunschliste" onPress={addWish} />
+          )}
+          {versionCount > 0 && (
+            <Btn kind="ghost" title={`Weitere Versionen anzeigen (${versionCount}) ›`} onPress={() => router.push(`/card-versions?id=${encodeURIComponent(id)}` as any)} />
+          )}
+        </View>
 
         <H>Preise (Cardmarket)</H>
         <Panel>
@@ -132,6 +171,8 @@ export default function CardScreen() {
           {!jaProduct && card.card_variants.length > 0 && card.card_variants.every((v) => !v.cardmarket_product_id) && (
             <Sub>Für diese Karte ist kein Cardmarket-Produkt bekannt. Du kannst beim Eintrag einen eigenen Wert setzen.</Sub>
           )}
+          <Sub>Aktuellen Preis live von Cardmarket laden, z. B. beim Kaufen auf einer Messe:</Sub>
+          <Row>{CONDITIONS.map((c) => <Chip key={c.code} label={c.label} on={liveCond === c.code} onPress={() => setLiveCond(c.code)} />)}</Row>
           {card.card_variants.map((v) => {
             const row = v.cardmarket_product_id ? prices.get(Number(v.cardmarket_product_id)) : undefined;
             const rev = v.finish === "reverse_holo";
@@ -162,6 +203,8 @@ export default function CardScreen() {
                     </View>
                   );
                 })()}
+                <Btn title={`Aktuellen Preis laden (${CONDITIONS.find((c) => c.code === liveCond)?.label ?? liveCond})`} onPress={() => loadLive(v)} busy={liveBusy === v.id} disabled={!v.cardmarket_product_id && !jaProduct} />
+                {liveMsg[v.id] ? <Sub style={{ marginTop: 4 }}>{liveMsg[v.id]}</Sub> : null}
                 {!row ? <Sub style={{ marginTop: 4 }}>Kein Preis vorhanden</Sub> : null}
                 {row && !fits ? <Sub style={{ marginTop: 4 }}>Kein Preis angezeigt: Cardmarket führt diese Karte nur als gemeinsames Produkt für mehrere Sprachen, ein Preis wäre ungenau. Über den Link ohne Filter kannst du selbst nachsehen und beim Eintrag einen eigenen Wert setzen.</Sub> : null}
                 {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (alle Verkäufer)" onPress={() => Linking.openURL(url)} />}

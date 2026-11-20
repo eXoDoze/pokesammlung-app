@@ -25,6 +25,8 @@ export default function ItemScreen() {
   const [val, setVal] = useState<Value>(null);
   const [row, setRow] = useState<PriceRow | null>(null);
   const [cond, setCond] = useState<CondPrice[]>([]);
+  const [liveBusy, setLiveBusy] = useState(false);
+  const [liveMsg, setLiveMsg] = useState("");
 
   useEffect(() => {
     supabase.from("collection_items").select(ITEM_SELECT).eq("id", id).single().then(async ({ data }) => { setItem(data as any); if (data) setJaProduct(await jaLinkProduct((data as any).card_id)); });
@@ -62,9 +64,25 @@ export default function ItemScreen() {
     : "";
 
   const save = async (vals: FormValues) => {
-    const { error } = await supabase.from("collection_items").update(vals).eq("id", item.id);
+    const { error } = await supabase.from("collection_items").update(isWish ? { ...vals, status: "owned" } : vals).eq("id", item.id);
     if (error) throw new Error(error.message);
+    if (isWish) Alert.alert("In der Sammlung", `${cardName(item.cards)} liegt jetzt in deiner Sammlung.`);
     router.back();
+  };
+  const refreshLive = async () => {
+    setLiveBusy(true); setLiveMsg("");
+    try {
+      const { data, error } = await supabase.functions.invoke("live-price", {
+        body: { card_id: item.card_id, variant_id: v?.id ?? null, language: item.language, condition: item.condition, finish: item.finish, first_ed: item.is_first_edition },
+      });
+      if (error) throw new Error(error.message);
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const d = data as { all: number | null; de: number | null; offers: number };
+      setCond(await latestCondPrices([item.card_id]));
+      setVal((await valuesForItems([item])).get(item.id) ?? null);
+      setLiveMsg(d.all == null ? "Aktuell kein Angebot in diesem Zustand auf Cardmarket." : `Aktualisiert: ${eur(d.all)} (alle Verkäufer, ${d.offers} Angebote)${d.de != null ? ` · ${eur(d.de)} (nur Deutschland)` : ""}`);
+    } catch (e: any) { setLiveMsg(`Preis konnte nicht geladen werden: ${e.message ?? e}`); }
+    setLiveBusy(false);
   };
   const close = async () => {
     const p = price.trim() === "" ? null : Number(price.replace(",", "."));
@@ -82,9 +100,10 @@ export default function ItemScreen() {
     if (error) { Alert.alert("Fehler", error.message); return; }
     router.back();
   };
-  const isClosed = !!item.status && item.status !== "owned";
+  const isWish = item.status === "wishlist";
+  const isClosed = item.status === "sold" || item.status === "traded";
   const remove = () =>
-    Alert.alert("Eintrag löschen?", `${cardName(item.cards)} aus der Sammlung entfernen?`, [
+    Alert.alert(isWish ? "Von der Wunschliste entfernen?" : "Eintrag löschen?", `${cardName(item.cards)} ${isWish ? "von der Wunschliste" : "aus der Sammlung"} entfernen?`, [
       { text: "Abbrechen", style: "cancel" },
       { text: "Löschen", style: "destructive", onPress: async () => { await supabase.from("collection_items").delete().eq("id", item.id); router.back(); } },
     ]);
@@ -126,6 +145,8 @@ export default function ItemScreen() {
               {low != null ? `Ab (alle Zustände): ${eur(low)}` : ""}{low != null && trend != null ? "  ·  " : ""}{trend != null ? `Trend (Mischzustände): ${eur(trend)}` : ""}
             </Sub>
           )}
+          {!item.is_graded && <Btn title="Preis jetzt aktualisieren" onPress={refreshLive} busy={liveBusy} />}
+          {liveMsg ? <Sub style={{ marginTop: 4 }}>{liveMsg}</Sub> : null}
           {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (alle Verkäufer)" onPress={() => Linking.openURL(url)} />}
           {urlDe && <Btn kind="ghost" title="Auf Cardmarket ansehen (nur Deutschland)" onPress={() => Linking.openURL(urlDe)} />}
           {urlPlain && !val && <Btn kind="ghost" title="Auf Cardmarket ansehen (ohne Filter)" onPress={() => Linking.openURL(urlPlain)} />}
@@ -148,12 +169,13 @@ export default function ItemScreen() {
             <Btn title="Speichern" onPress={close} />
             <Btn kind="ghost" title="Abbrechen" onPress={() => setClosing(false)} />
           </Panel>
-        ) : (
+        ) : isWish ? null : (
           <Btn title="Verkauft / getauscht …" onPress={() => setClosing(true)} />
         )}
-        <H>Eintrag bearbeiten</H>
-        <ItemForm variants={variants} lockVariant initial={{ ...item, variant_id: v?.id ?? null }} onSave={save} saveLabel="Speichern" />
-        <Btn kind="danger" title="Eintrag löschen" onPress={remove} />
+        <H>{isWish ? "Gekauft? Zustand und Kaufpreis eintragen" : "Eintrag bearbeiten"}</H>
+        {isWish && <Sub>Diese Karte steht auf deiner Wunschliste. Mit „In Sammlung übernehmen“ wandert sie samt Zustand, Kaufpreis und Datum in deine Sammlung.</Sub>}
+        <ItemForm variants={variants} lockVariant initial={{ ...item, variant_id: v?.id ?? null }} onSave={save} saveLabel={isWish ? "In Sammlung übernehmen" : "Speichern"} />
+        <Btn kind="danger" title={isWish ? "Von der Wunschliste entfernen" : "Eintrag löschen"} onPress={remove} />
       </ScrollView>
     </Screen>
   );
