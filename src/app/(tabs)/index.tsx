@@ -110,7 +110,9 @@ export default function Start() {
               <Sub>Der Verlauf erscheint nach dem zweiten Tag mit Preisen.</Sub>
             )}
             <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
-              <Stat label="Karten" value={String(sum.count)} />
+              <Pressable onPress={() => router.push("/bestand" as any)} style={{ flex: 1 }}>
+                <Stat label="Karten ›" value={String(sum.count)} />
+              </Pressable>
               <Pressable onPress={() => router.push("/investiert" as any)} style={{ flex: 1 }}>
                 <Stat label="Investiert ›" value={eur(sum.invested)} />
               </Pressable>
