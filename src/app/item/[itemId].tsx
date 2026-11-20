@@ -5,8 +5,8 @@ import { Alert, Linking, Pressable, ScrollView, View } from "react-native";
 import { CardTags } from "../../components/CardTags";
 import { FormValues, ItemForm } from "../../components/ItemForm";
 import { Btn, Field, H, Panel, Pill, Screen, Segmented, Stat, Sub, Txt } from "../../components/ui";
-import { ITEM_SELECT, Item, PriceRow, Value, latestPrices, valuesForItems } from "../../lib/data";
-import { cardName, cardmarketUrl, deToIso, eur, isoToDe, setTitle, todayDe } from "../../lib/labels";
+import { CondPrice, ITEM_SELECT, Item, PriceRow, Value, findCond, latestCondPrices, latestPrices, valuesForItems } from "../../lib/data";
+import { cardName, cardmarketUrl, conditionLabel, deToIso, eur, isoToDe, setTitle, todayDe } from "../../lib/labels";
 import { jaLinkProduct, pickVariant } from "../../lib/data";
 import { supabase } from "../../lib/supabase";
 import { hueFor } from "../../lib/theme";
@@ -24,6 +24,7 @@ export default function ItemScreen() {
   const [rarity, setRarity] = useState<string | null>(null);
   const [val, setVal] = useState<Value>(null);
   const [row, setRow] = useState<PriceRow | null>(null);
+  const [cond, setCond] = useState<CondPrice[]>([]);
 
   useEffect(() => {
     supabase.from("collection_items").select(ITEM_SELECT).eq("id", id).single().then(async ({ data }) => { setItem(data as any); if (data) setJaProduct(await jaLinkProduct((data as any).card_id)); });
@@ -35,6 +36,7 @@ export default function ItemScreen() {
       const c = await supabase.from("cards").select("rarity").eq("id", item.card_id).single();
       setRarity((c.data as any)?.rarity ?? null);
       setVal((await valuesForItems([item])).get(item.id) ?? null);
+      setCond(await latestCondPrices([item.card_id]));
       const pv = pickVariant(item, item.cards.card_variants ?? []);
       if (pv?.cardmarket_product_id) setRow((await latestPrices([Number(pv.cardmarket_product_id)])).get(Number(pv.cardmarket_product_id)) ?? null);
     })();
@@ -49,7 +51,13 @@ export default function ItemScreen() {
   const rev = item.finish === "reverse_holo";
   const trend = row ? (rev ? row.trend_foil : row.trend) : null;
   const low = row ? (rev ? row.low_foil : row.low) : null;
-  const kindLabel = val ? (val.kind === "zustand" ? "Zustandspreis" : val.kind === "markt" ? "Cardmarket-Trend (alle Zustände gemischt)" : "Eigener Wert") : "";
+  const deCond = findCond(item, cond, "DE");
+  const kindLabel = val
+    ? val.kind === "zustand" ? `Günstigstes Angebot · ${conditionLabel(item.condition)} · alle Verkäufer`
+      : val.kind === "ab" ? "Günstigstes Angebot · alle Zustände · alle Verkäufer"
+      : val.kind === "markt" ? "Cardmarket-Trend (kein günstigster Preis vorhanden)"
+      : "Eigener Wert (hat Vorrang vor Cardmarket)"
+    : "";
 
   const save = async (vals: FormValues) => {
     const { error } = await supabase.from("collection_items").update(vals).eq("id", item.id);
@@ -105,11 +113,16 @@ export default function ItemScreen() {
               <Sub>{kindLabel}</Sub>
             </>
           ) : <Sub>Kein Preis vorhanden. Du kannst unten einen eigenen Wert eintragen.</Sub>}
-          {(trend != null || low != null) && (
+          {!item.is_graded && (
             <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
-              <Stat label={`Trend${rev ? " (Reverse)" : ""}`} value={eur(trend)} />
-              <Stat label="Ab" value={eur(low)} />
+              <Stat label={`Nur Verkäufer aus Deutschland · ${conditionLabel(item.condition)}`} value={eur(deCond ? Number(deCond.price) : null)} />
             </View>
+          )}
+          {val?.kind === "ab" && !item.is_graded && !rev ? <Sub style={{ marginTop: 6 }}>Der Preis für „{conditionLabel(item.condition)}" wird beim nächsten Preis-Update ergänzt. Bis dahin gilt der günstigste Preis über alle Zustände.</Sub> : null}
+          {(trend != null || low != null) && (
+            <Sub style={{ marginTop: 8, fontSize: 12 }}>
+              {low != null ? `Ab (alle Zustände): ${eur(low)}` : ""}{low != null && trend != null ? "  ·  " : ""}{trend != null ? `Trend (Mischzustände): ${eur(trend)}` : ""}
+            </Sub>
           )}
           {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (alle Verkäufer)" onPress={() => Linking.openURL(url)} />}
           {urlDe && <Btn kind="ghost" title="Auf Cardmarket ansehen (nur Deutschland)" onPress={() => Linking.openURL(urlDe)} />}

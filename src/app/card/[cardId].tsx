@@ -5,8 +5,8 @@ import { Alert, Linking, Pressable, ScrollView, View } from "react-native";
 import { CardTags } from "../../components/CardTags";
 import { ItemForm, FormValues } from "../../components/ItemForm";
 import { Btn, H, Panel, Pill, Screen, Stat, Sub, Thumb, Txt } from "../../components/ui";
-import { PriceRow, Variant, jaLinkProduct, latestPrices, ITEM_SELECT, Item, valuesForItems, Value } from "../../lib/data";
-import { FINISH_LABEL, cardName, cardmarketUrl, ebaySoldUrl, eur, isFirstEd, variantLabel, setTitle } from "../../lib/labels";
+import { CondPrice, PriceRow, Variant, jaLinkProduct, latestCondPrices, latestPrices, ITEM_SELECT, Item, valuesForItems, Value } from "../../lib/data";
+import { CONDITIONS, FINISH_LABEL, cardName, cardmarketUrl, ebaySoldUrl, eur, isFirstEd, variantLabel, setTitle } from "../../lib/labels";
 import { useApp } from "../../lib/session";
 import { supabase } from "../../lib/supabase";
 import { hueFor } from "../../lib/theme";
@@ -31,6 +31,7 @@ export default function CardScreen() {
   const [lang, setLang] = useState("de");
   const [jaProduct, setJaProduct] = useState<number | null>(null);
   const [versions, setVersions] = useState<Version[]>([]);
+  const [cond, setCond] = useState<CondPrice[]>([]);
   const [mine, setMine] = useState<{ item: Item; value: Value }[]>([]);
 
   useEffect(() => {
@@ -41,6 +42,7 @@ export default function CardScreen() {
       const c = data as any as Card | null;
       setCard(c);
       setJaProduct(await jaLinkProduct(id));
+      setCond(await latestCondPrices([id]));
       supabase.rpc("card_versions", { p_card_id: id }).then(({ data: v }) => setVersions((v ?? []) as Version[]));
       if (active) {
         const own = await supabase.from("collection_items").select(ITEM_SELECT).eq("collection_id", active.id).eq("status", "owned").eq("card_id", id);
@@ -116,7 +118,7 @@ export default function CardScreen() {
           </>
         )}
 
-        <H>Marktpreise (Cardmarket, alle Zustände gemischt)</H>
+        <H>Preise (Cardmarket)</H>
         <Panel>
           {card.card_variants.length === 0 && <Sub>Keine Varianten bekannt.</Sub>}
           {jaProduct && (
@@ -140,9 +142,24 @@ export default function CardScreen() {
               <View key={v.id} style={{ paddingVertical: 6 }}>
                 <Txt bold>{variantLabel(v)}</Txt>
                 <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
-                  <Stat label="Trend" value={eur(trend)} />
-                  <Stat label="Ab" value={eur(low)} />
+                  <Stat label="Günstigster Preis (alle Zustände, alle Verkäufer)" value={eur(low)} />
                 </View>
+                {trend != null ? <Sub style={{ marginTop: 6, fontSize: 12 }}>Trend (Mischzustände): {eur(trend)}</Sub> : null}
+                {(() => {
+                  // Zustandspreise (nur Karten, die in einer Sammlung liegen und abgefragt wurden): alle Verkäufer / nur Deutschland
+                  const rows = CONDITIONS.map((c) => {
+                    const mine = cond.filter((p) => p.condition === c.code && p.finish === v.finish && !p.is_graded);
+                    const all = mine.find((p) => p.seller_scope !== "DE"), de = mine.find((p) => p.seller_scope === "DE");
+                    return all || de ? { c, all, de } : null;
+                  }).filter(Boolean) as { c: (typeof CONDITIONS)[number]; all?: CondPrice; de?: CondPrice }[];
+                  if (!rows.length) return null;
+                  return (
+                    <View style={{ marginTop: 8 }}>
+                      <Sub>Je Zustand (günstigstes Angebot): alle Verkäufer · nur Deutschland</Sub>
+                      {rows.map((r) => <Sub key={r.c.code}>{r.c.label}: {eur(r.all ? Number(r.all.price) : null)} · {eur(r.de ? Number(r.de.price) : null)}</Sub>)}
+                    </View>
+                  );
+                })()}
                 {!row ? <Sub style={{ marginTop: 4 }}>Kein Preis vorhanden</Sub> : null}
                 {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (alle Verkäufer)" onPress={() => Linking.openURL(url)} />}
                 {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (nur Deutschland)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype), germanOnly: true })!)} />}

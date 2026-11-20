@@ -97,7 +97,7 @@ export default function Bestand() {
                     ? <Pill label={i.status === "sold" ? "Verkauft" : "Getauscht"} tone={i.status === "sold" ? "good" : "accent"} />
                     : null}
                   <Text style={{ color: t.text, fontSize: 15, fontWeight: "800" }}>{i.status === "sold" ? (i.sold_price != null ? eur(i.sold_price * i.quantity) : "–") : v ? eur(v.price * i.quantity) : "–"}</Text>
-                  <Text style={{ color: t.sub, fontSize: 10.5, marginTop: 1 }}>{i.status === "sold" ? isoToDe(i.closed_at) : v?.kind === "markt" ? "Markt" : v?.kind === "eigen" ? "von Hand" : v?.scope === "other" ? "Ausland" : v ? "Zustand" : "kein Preis"}</Text>
+                  <Text style={{ color: t.sub, fontSize: 10.5, marginTop: 1 }}>{i.status === "sold" ? isoToDe(i.closed_at) : v?.kind === "eigen" ? "von Hand" : v?.kind === "zustand" ? "Zustand" : v?.kind === "ab" ? "Ab-Preis" : v?.kind === "markt" ? "Trend" : "kein Preis"}</Text>
                   {profit != null && <Text style={{ color: profit >= 0 ? t.good : t.bad, fontSize: 12, fontWeight: "700", marginTop: 3 }}>{profit >= 0 ? "+" : ""}{eur(profit)}</Text>}
                 </View>
               </View>
