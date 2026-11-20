@@ -5,7 +5,7 @@ import { Alert, Linking, Pressable, ScrollView, View } from "react-native";
 import { CardTags } from "../../components/CardTags";
 import { Btn, Chip, H, Panel, Pill, Row, Screen, Stat, Sub, Txt } from "../../components/ui";
 import { CondPrice, PriceRow, Variant, jaLinkProduct, latestCondPrices, latestPrices, ITEM_SELECT, Item, priceGuideFits, valuesForItems, Value } from "../../lib/data";
-import { CONDITIONS, FINISH_LABEL, cardName, cardmarketUrl, ebaySoldUrl, eur, isFirstEd, isShadowless, variantLabel, setTitle } from "../../lib/labels";
+import { CONDITIONS, FINISH_LABEL, cardName, cardmarketUrl, ebaySoldUrl, eur, isFirstEd, isShadowless, variantBadge, variantLabel, variantLabels, setTitle } from "../../lib/labels";
 import { useApp } from "../../lib/session";
 import { supabase } from "../../lib/supabase";
 import { hueFor, useTheme } from "../../lib/theme";
@@ -130,6 +130,8 @@ export default function CardScreen() {
     return { row, rev, fits, trend, low, minCond, value, label, de: liveDe ? Number(liveDe.price) : null };
   };
   const hc = hv ? calc(hv) : null;
+  const vLabels = variantLabels(card.card_variants);
+  const badge = hv ? variantBadge(hv) : "";
   const urlOf = (v: Variant, extra: object = {}) => cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: v.finish === "reverse_holo", firstEd: isFirstEd(v.subtype), directUrl: card.cardmarket_url, ...extra });
   const Line = ({ title, sub, onPress, open }: { title: string; sub?: string; onPress: () => void; open?: boolean }) => (
     <Pressable onPress={onPress} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 15, paddingHorizontal: 16, borderBottomColor: t.line, borderBottomWidth: 1 }}>
@@ -147,7 +149,10 @@ export default function CardScreen() {
           <View style={{ position: "absolute", top: -40, width: 420, height: 420, borderRadius: 210, backgroundColor: `hsl(${hue}, 62%, 38%)`, opacity: 0.35 }} />
           <View style={{ position: "absolute", top: 20, width: 300, height: 300, borderRadius: 150, backgroundColor: `hsl(${hue}, 70%, 52%)`, opacity: 0.25 }} />
           {card.image_url
-            ? <Image source={{ uri: card.image_url }} style={{ width: 250, height: 350, shadowColor: "#000", shadowOpacity: 0.5, shadowRadius: 18, shadowOffset: { width: 0, height: 14 } }} contentFit="contain" />
+            ? <View style={{ width: 250, height: 350 }}>
+                <Image source={{ uri: card.image_url }} style={{ width: 250, height: 350, shadowColor: "#000", shadowOpacity: 0.5, shadowRadius: 18, shadowOffset: { width: 0, height: 14 } }} contentFit="contain" />
+                {badge ? <View style={{ position: "absolute", left: 14, right: 14, bottom: 22, backgroundColor: "#d62b2b", borderRadius: 14, paddingVertical: 3, paddingHorizontal: 8, alignItems: "center" }}><Txt bold style={{ color: "#fff", fontSize: 11 }}>{badge}</Txt></View> : null}
+              </View>
             : <View style={{ width: 250, height: 350, alignItems: "center", justifyContent: "center" }}><Sub>Kein Bild vorhanden</Sub></View>}
           <Txt bold style={{ fontSize: 26, marginTop: 14 }}>{cardName(card)}</Txt>
           {card.name_en && card.name_en !== cardName(card) ? <Sub>{card.name_en}</Sub> : null}
@@ -163,7 +168,7 @@ export default function CardScreen() {
           {/* Preis im Blick */}
           <Panel style={{ marginTop: -6 }}>
             {card.card_variants.length > 1 && (
-              <Row>{card.card_variants.map((v) => <Chip key={v.id} label={variantLabel(v)} on={hv?.id === v.id} onPress={() => setHeroVid(v.id)} />)}</Row>
+              <Row>{card.card_variants.map((v) => <Chip key={v.id} label={vLabels.get(v.id) ?? variantLabel(v)} on={hv?.id === v.id} onPress={() => setHeroVid(v.id)} />)}</Row>
             )}
             {hc && hc.value != null ? (
               <>
@@ -232,7 +237,7 @@ export default function CardScreen() {
                   }).filter(Boolean) as { cc: (typeof CONDITIONS)[number]; all?: CondPrice; de?: CondPrice }[];
                   return (
                     <View key={v.id} style={{ marginBottom: 10 }}>
-                      <Txt bold>{variantLabel(v)}</Txt>
+                      <Txt bold>{vLabels.get(v.id) ?? variantLabel(v)}</Txt>
                       <Sub>Günstigster Preis (alle Zustände): {eur(c.low ?? c.minCond)}{c.trend != null ? ` · Trend: ${eur(c.trend)}` : ""}</Sub>
                       {rows.length ? <Sub style={{ marginTop: 4 }}>Je Zustand: alle Verkäufer · nur Deutschland</Sub> : <Sub style={{ marginTop: 4 }}>Noch keine Zustandspreise geladen.</Sub>}
                       {rows.map((r) => <Sub key={r.cc.code}>{r.cc.label}: {eur(r.all ? Number(r.all.price) : null)} · {eur(r.de ? Number(r.de.price) : null)}</Sub>)}

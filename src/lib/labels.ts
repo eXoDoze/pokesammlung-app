@@ -44,6 +44,26 @@ export function variantLabel(v: { finish: string; subtype?: string | null; stamp
   return parts.join(" · ");
 }
 
+// Aufdruck für das Kartenbild (wie bei Cardmarket: "Metal Card", "Oversized" …) – ohne 1st Edition/Shadowless
+export function variantBadge(v: { subtype?: string | null; stamps?: string[] | null }) {
+  const parts: string[] = [];
+  if (v.subtype && !isFirstEd(v.subtype) && !isShadowless(v.subtype)) parts.push(v.subtype);
+  if (v.stamps && v.stamps.length) parts.push(...v.stamps);
+  return parts.join(" · ");
+}
+
+// Beschriftungen aller Varianten einer Karte; gleiche Beschriftungen werden nach Cardmarket-Produktnummer als "Version 1, 2 …" unterschieden
+export function variantLabels<T extends { id: string; finish: string; subtype?: string | null; stamps?: string[] | null; cardmarket_product_id?: number | null }>(vs: T[]) {
+  const out = new Map<string, string>();
+  const groups = new Map<string, T[]>();
+  for (const v of vs) { const l = variantLabel(v); if (!groups.has(l)) groups.set(l, []); groups.get(l)!.push(v); }
+  for (const [l, g] of groups) {
+    if (g.length === 1) { out.set(g[0].id, l); continue; }
+    [...g].sort((a, b) => (a.cardmarket_product_id ?? 0) - (b.cardmarket_product_id ?? 0)).forEach((v, i) => out.set(v.id, `${l} · Version ${i + 1}`));
+  }
+  return out;
+}
+
 // Links zu Cardmarket (alle Verkäufer) und eBay (verkaufte Artikel)
 export function cardmarketUrl(opts: {
   productId?: number | null; languageCode?: string; condition?: string;
