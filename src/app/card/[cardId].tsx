@@ -13,7 +13,7 @@ import { hueFor } from "../../lib/theme";
 
 type Card = {
   id: string; number: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null;
-  rarity: string | null; image_url: string | null; set_id: string;
+  rarity: string | null; image_url: string | null; set_id: string; cardmarket_url?: string | null;
   sets: { name_en: string | null; name_de: string | null; name_ja: string | null; region: string } | null;
   card_variants: Variant[];
 };
@@ -37,7 +37,7 @@ export default function CardScreen() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from("cards")
-        .select("id,number,name_en,name_de,name_ja,name_ko,name_zh,rarity,image_url,set_id,sets(name_en,name_de,name_ja,name_ko,name_zh,region),card_variants(id,finish,subtype,stamps,cardmarket_product_id,asia_product)")
+        .select("id,number,name_en,name_de,name_ja,name_ko,name_zh,rarity,image_url,set_id,cardmarket_url,sets(name_en,name_de,name_ja,name_ko,name_zh,region),card_variants(id,finish,subtype,stamps,cardmarket_product_id,asia_product)")
         .eq("id", id).single();
       const c = data as any as Card | null;
       setCard(c);
@@ -126,7 +126,7 @@ export default function CardScreen() {
               <Txt bold>Japanische Karte</Txt>
               <Sub>Kein Marktwert: Cardmarkets Preisdatei gilt für alle Sprachen gemischt. Die Zuordnung zum englischen Produkt wurde automatisch gefunden und kann ungenau sein.</Sub>
               <Btn kind="ghost" title="Auf Cardmarket ansehen (Japanisch, alle Verkäufer)"
-                onPress={() => Linking.openURL(cardmarketUrl({ productId: jaProduct, languageCode: "ja" })!)} />
+                onPress={() => Linking.openURL(cardmarketUrl({ productId: jaProduct, languageCode: "ja", directUrl: card.cardmarket_url })!)} />
             </View>
           )}
           {!jaProduct && card.card_variants.length > 0 && card.card_variants.every((v) => !v.cardmarket_product_id) && (
@@ -139,7 +139,7 @@ export default function CardScreen() {
             const fits = priceGuideFits(card.sets?.region && card.sets.region !== "international" ? "ja" : "de", v);
             const trend = row && fits ? (rev ? row.trend_foil : row.trend) : null;
             const low = row && fits ? (rev ? row.low_foil : row.low) : null;
-            const url = cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype) });
+            const url = cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype), directUrl: card.cardmarket_url });
             return (
               <View key={v.id} style={{ paddingVertical: 6 }}>
                 <Txt bold>{variantLabel(v)}</Txt>
@@ -165,8 +165,8 @@ export default function CardScreen() {
                 {!row ? <Sub style={{ marginTop: 4 }}>Kein Preis vorhanden</Sub> : null}
                 {row && !fits ? <Sub style={{ marginTop: 4 }}>Kein Preis angezeigt: Cardmarket führt diese Karte nur als gemeinsames Produkt für mehrere Sprachen, ein Preis wäre ungenau. Über den Link ohne Filter kannst du selbst nachsehen und beim Eintrag einen eigenen Wert setzen.</Sub> : null}
                 {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (alle Verkäufer)" onPress={() => Linking.openURL(url)} />}
-                {url && !fits && <Btn kind="ghost" title="Auf Cardmarket ansehen (ohne Filter)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id })!)} />}
-                {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (nur Deutschland)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype), germanOnly: true })!)} />}
+                {url && !fits && <Btn kind="ghost" title="Auf Cardmarket ansehen (ohne Filter)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id, directUrl: card.cardmarket_url })!)} />}
+                {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (nur Deutschland)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype), germanOnly: true, directUrl: card.cardmarket_url })!)} />}
               </View>
             );
           })}

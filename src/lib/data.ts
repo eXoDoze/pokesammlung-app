@@ -15,7 +15,7 @@ export type Item = {
   status?: string; closed_at?: string | null; sold_price?: number | null; closed_note?: string | null;
   cards: {
     id: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null;
-    number: string; image_url: string | null; set_id: string;
+    number: string; image_url: string | null; set_id: string; cardmarket_url?: string | null;
     sets: { name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null; region?: string | null } | null;
     card_variants: Variant[];
   };
@@ -32,7 +32,7 @@ export type CondPrice = {
 };
 
 export const ITEM_SELECT =
-  "*, cards(id,name_en,name_de,name_ja,name_ko,name_zh,number,image_url,set_id, sets(name_en,name_de,name_ja,name_ko,name_zh,region), card_variants(id,finish,subtype,stamps,cardmarket_product_id,asia_product))";
+  "*, cards(id,name_en,name_de,name_ja,name_ko,name_zh,number,image_url,set_id,cardmarket_url, sets(name_en,name_de,name_ja,name_ko,name_zh,region), card_variants(id,finish,subtype,stamps,cardmarket_product_id,asia_product))";
 
 export async function fetchItems(collectionId: string, statuses: string[] = ["owned"]): Promise<Item[]> {
   const out: Item[] = [];

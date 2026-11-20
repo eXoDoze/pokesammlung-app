@@ -1,0 +1,117 @@
+diff --git a/src/app/card/[cardId].tsx b/src/app/card/[cardId].tsx
+index 47aee7b..4dfc14b 100644
+--- a/src/app/card/[cardId].tsx
++++ b/src/app/card/[cardId].tsx
+@@ -13,7 +13,7 @@ import { hueFor } from "../../lib/theme";
+ 
+ type Card = {
+   id: string; number: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null;
+-  rarity: string | null; image_url: string | null; set_id: string;
++  rarity: string | null; image_url: string | null; set_id: string; cardmarket_url?: string | null;
+   sets: { name_en: string | null; name_de: string | null; name_ja: string | null; region: string } | null;
+   card_variants: Variant[];
+ };
+@@ -37,7 +37,7 @@ export default function CardScreen() {
+   useEffect(() => {
+     (async () => {
+       const { data } = await supabase.from("cards")
+-        .select("id,number,name_en,name_de,name_ja,name_ko,name_zh,rarity,image_url,set_id,sets(name_en,name_de,name_ja,name_ko,name_zh,region),card_variants(id,finish,subtype,stamps,cardmarket_product_id,asia_product)")
++        .select("id,number,name_en,name_de,name_ja,name_ko,name_zh,rarity,image_url,set_id,cardmarket_url,sets(name_en,name_de,name_ja,name_ko,name_zh,region),card_variants(id,finish,subtype,stamps,cardmarket_product_id,asia_product)")
+         .eq("id", id).single();
+       const c = data as any as Card | null;
+       setCard(c);
+@@ -126,7 +126,7 @@ export default function CardScreen() {
+               <Txt bold>Japanische Karte</Txt>
+               <Sub>Kein Marktwert: Cardmarkets Preisdatei gilt für alle Sprachen gemischt. Die Zuordnung zum englischen Produkt wurde automatisch gefunden und kann ungenau sein.</Sub>
+               <Btn kind="ghost" title="Auf Cardmarket ansehen (Japanisch, alle Verkäufer)"
+-                onPress={() => Linking.openURL(cardmarketUrl({ productId: jaProduct, languageCode: "ja" })!)} />
++                onPress={() => Linking.openURL(cardmarketUrl({ productId: jaProduct, languageCode: "ja", directUrl: card.cardmarket_url })!)} />
+             </View>
+           )}
+           {!jaProduct && card.card_variants.length > 0 && card.card_variants.every((v) => !v.cardmarket_product_id) && (
+@@ -139,7 +139,7 @@ export default function CardScreen() {
+             const fits = priceGuideFits(card.sets?.region && card.sets.region !== "international" ? "ja" : "de", v);
+             const trend = row && fits ? (rev ? row.trend_foil : row.trend) : null;
+             const low = row && fits ? (rev ? row.low_foil : row.low) : null;
+-            const url = cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype) });
++            const url = cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype), directUrl: card.cardmarket_url });
+             return (
+               <View key={v.id} style={{ paddingVertical: 6 }}>
+                 <Txt bold>{variantLabel(v)}</Txt>
+@@ -165,8 +165,8 @@ export default function CardScreen() {
+                 {!row ? <Sub style={{ marginTop: 4 }}>Kein Preis vorhanden</Sub> : null}
+                 {row && !fits ? <Sub style={{ marginTop: 4 }}>Kein Preis angezeigt: Cardmarket führt diese Karte nur als gemeinsames Produkt für mehrere Sprachen, ein Preis wäre ungenau. Über den Link ohne Filter kannst du selbst nachsehen und beim Eintrag einen eigenen Wert setzen.</Sub> : null}
+                 {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (alle Verkäufer)" onPress={() => Linking.openURL(url)} />}
+-                {url && !fits && <Btn kind="ghost" title="Auf Cardmarket ansehen (ohne Filter)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id })!)} />}
+-                {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (nur Deutschland)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype), germanOnly: true })!)} />}
++                {url && !fits && <Btn kind="ghost" title="Auf Cardmarket ansehen (ohne Filter)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id, directUrl: card.cardmarket_url })!)} />}
++                {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (nur Deutschland)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype), germanOnly: true, directUrl: card.cardmarket_url })!)} />}
+               </View>
+             );
+           })}
+diff --git a/src/app/item/[itemId].tsx b/src/app/item/[itemId].tsx
+index b5a1d1a..3f2cda6 100644
+--- a/src/app/item/[itemId].tsx
++++ b/src/app/item/[itemId].tsx
+@@ -45,14 +45,14 @@ export default function ItemScreen() {
+   if (!item) return <Screen><Sub style={{ padding: 16 }}>Lade …</Sub></Screen>;
+   const variants = item.cards.card_variants ?? [];
+   const v = pickVariant(item, variants);
+-  const urlOpts = { productId: v?.cardmarket_product_id ?? jaProduct, languageCode: item.language, condition: item.is_graded ? "MT" : item.condition, reverse: item.finish === "reverse_holo", firstEd: item.is_first_edition };
++  const urlOpts = { directUrl: item.cards.cardmarket_url, productId: v?.cardmarket_product_id ?? jaProduct, languageCode: item.language, condition: item.is_graded ? "MT" : item.condition, reverse: item.finish === "reverse_holo", firstEd: item.is_first_edition };
+   const url = cardmarketUrl(urlOpts);
+   const urlDe = cardmarketUrl({ ...urlOpts, germanOnly: true });
+   const rev = item.finish === "reverse_holo";
+   const fits = priceGuideFits(item.language, v);
+   const trend = row && fits ? (rev ? row.trend_foil : row.trend) : null;
+   const low = row && fits ? (rev ? row.low_foil : row.low) : null;
+-  const urlPlain = cardmarketUrl({ productId: v?.cardmarket_product_id ?? jaProduct });
++  const urlPlain = cardmarketUrl({ productId: v?.cardmarket_product_id ?? jaProduct, directUrl: item.cards.cardmarket_url });
+   const deCond = findCond(item, cond, "DE");
+   const kindLabel = val
+     ? val.kind === "zustand" ? `Günstigstes Angebot · ${conditionLabel(item.condition)} · alle Verkäufer`
+diff --git a/src/lib/data.ts b/src/lib/data.ts
+index 1af67cc..74958f6 100644
+--- a/src/lib/data.ts
++++ b/src/lib/data.ts
+@@ -15,7 +15,7 @@ export type Item = {
+   status?: string; closed_at?: string | null; sold_price?: number | null; closed_note?: string | null;
+   cards: {
+     id: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null;
+-    number: string; image_url: string | null; set_id: string;
++    number: string; image_url: string | null; set_id: string; cardmarket_url?: string | null;
+     sets: { name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null; region?: string | null } | null;
+     card_variants: Variant[];
+   };
+@@ -32,7 +32,7 @@ export type CondPrice = {
+ };
+ 
+ export const ITEM_SELECT =
+-  "*, cards(id,name_en,name_de,name_ja,name_ko,name_zh,number,image_url,set_id, sets(name_en,name_de,name_ja,name_ko,name_zh,region), card_variants(id,finish,subtype,stamps,cardmarket_product_id,asia_product))";
++  "*, cards(id,name_en,name_de,name_ja,name_ko,name_zh,number,image_url,set_id,cardmarket_url, sets(name_en,name_de,name_ja,name_ko,name_zh,region), card_variants(id,finish,subtype,stamps,cardmarket_product_id,asia_product))";
+ 
+ export async function fetchItems(collectionId: string, statuses: string[] = ["owned"]): Promise<Item[]> {
+   const out: Item[] = [];
+diff --git a/src/lib/labels.ts b/src/lib/labels.ts
+index a5ec3c3..98239e3 100644
+--- a/src/lib/labels.ts
++++ b/src/lib/labels.ts
+@@ -48,7 +48,18 @@ export function variantLabel(v: { finish: string; subtype?: string | null; stamp
+ export function cardmarketUrl(opts: {
+   productId?: number | null; languageCode?: string; condition?: string;
+   reverse?: boolean; firstEd?: boolean; germanOnly?: boolean;
++  directUrl?: string | null; // fest hinterlegte Cardmarket-Seite der Karte (hat Vorrang vor der Produktnummer)
+ }) {
++  if (opts.directUrl) {
++    const d = new URLSearchParams();
++    const c2 = CONDITIONS.find((c) => c.code === opts.condition);
++    if (c2) d.set("minCondition", String(c2.cm));
++    if (opts.germanOnly) d.set("sellerCountry", "7");
++    if (opts.reverse) d.set("isReverseHolo", "Y");
++    if (opts.firstEd) d.set("isFirstEd", "Y");
++    const qs = d.toString();
++    return opts.directUrl + (qs ? (opts.directUrl.includes("?") ? "&" : "?") + qs : "");
++  }
+   if (!opts.productId) return null;
+   const q = new URLSearchParams({ idProduct: String(opts.productId) });
+   const lang = LANGUAGES.find((l) => l.code === opts.languageCode);

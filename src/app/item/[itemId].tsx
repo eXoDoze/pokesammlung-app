@@ -45,14 +45,14 @@ export default function ItemScreen() {
   if (!item) return <Screen><Sub style={{ padding: 16 }}>Lade …</Sub></Screen>;
   const variants = item.cards.card_variants ?? [];
   const v = pickVariant(item, variants);
-  const urlOpts = { productId: v?.cardmarket_product_id ?? jaProduct, languageCode: item.language, condition: item.is_graded ? "MT" : item.condition, reverse: item.finish === "reverse_holo", firstEd: item.is_first_edition };
+  const urlOpts = { directUrl: item.cards.cardmarket_url, productId: v?.cardmarket_product_id ?? jaProduct, languageCode: item.language, condition: item.is_graded ? "MT" : item.condition, reverse: item.finish === "reverse_holo", firstEd: item.is_first_edition };
   const url = cardmarketUrl(urlOpts);
   const urlDe = cardmarketUrl({ ...urlOpts, germanOnly: true });
   const rev = item.finish === "reverse_holo";
   const fits = priceGuideFits(item.language, v);
   const trend = row && fits ? (rev ? row.trend_foil : row.trend) : null;
   const low = row && fits ? (rev ? row.low_foil : row.low) : null;
-  const urlPlain = cardmarketUrl({ productId: v?.cardmarket_product_id ?? jaProduct });
+  const urlPlain = cardmarketUrl({ productId: v?.cardmarket_product_id ?? jaProduct, directUrl: item.cards.cardmarket_url });
   const deCond = findCond(item, cond, "DE");
   const kindLabel = val
     ? val.kind === "zustand" ? `Günstigstes Angebot · ${conditionLabel(item.condition)} · alle Verkäufer`

@@ -48,7 +48,18 @@ export function variantLabel(v: { finish: string; subtype?: string | null; stamp
 export function cardmarketUrl(opts: {
   productId?: number | null; languageCode?: string; condition?: string;
   reverse?: boolean; firstEd?: boolean; germanOnly?: boolean;
+  directUrl?: string | null; // fest hinterlegte Cardmarket-Seite der Karte (hat Vorrang vor der Produktnummer)
 }) {
+  if (opts.directUrl) {
+    const d = new URLSearchParams();
+    const c2 = CONDITIONS.find((c) => c.code === opts.condition);
+    if (c2) d.set("minCondition", String(c2.cm));
+    if (opts.germanOnly) d.set("sellerCountry", "7");
+    if (opts.reverse) d.set("isReverseHolo", "Y");
+    if (opts.firstEd) d.set("isFirstEd", "Y");
+    const qs = d.toString();
+    return opts.directUrl + (qs ? (opts.directUrl.includes("?") ? "&" : "?") + qs : "");
+  }
   if (!opts.productId) return null;
   const q = new URLSearchParams({ idProduct: String(opts.productId) });
   const lang = LANGUAGES.find((l) => l.code === opts.languageCode);
