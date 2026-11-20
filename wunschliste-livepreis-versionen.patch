@@ -98,7 +98,7 @@ index 0000000..87bddba
 +  );
 +}
 diff --git a/src/app/card/[cardId].tsx b/src/app/card/[cardId].tsx
-index 4dfc14b..c9f1c05 100644
+index 4dfc14b..09fd925 100644
 --- a/src/app/card/[cardId].tsx
 +++ b/src/app/card/[cardId].tsx
 @@ -4,9 +4,9 @@ import React, { useEffect, useState } from "react";
@@ -243,15 +243,35 @@ index 4dfc14b..c9f1c05 100644
            {card.card_variants.map((v) => {
              const row = v.cardmarket_product_id ? prices.get(Number(v.cardmarket_product_id)) : undefined;
              const rev = v.finish === "reverse_holo";
-@@ -162,6 +203,8 @@ export default function CardScreen() {
+@@ -140,11 +181,14 @@ export default function CardScreen() {
+             const trend = row && fits ? (rev ? row.trend_foil : row.trend) : null;
+             const low = row && fits ? (rev ? row.low_foil : row.low) : null;
+             const url = cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype), directUrl: card.cardmarket_url });
++            // Gibt es keinen Ab-Preis aus der Preisliste, gilt der günstigste geladene Zustandspreis (alle Verkäufer) statt „kein Preis“
++            const condAll = cond.filter((p) => p.finish === v.finish && !p.is_graded && p.seller_scope !== "DE").map((p) => Number(p.price)).filter(Number.isFinite);
++            const minCond = condAll.length ? Math.min(...condAll) : null;
+             return (
+               <View key={v.id} style={{ paddingVertical: 6 }}>
+                 <Txt bold>{variantLabel(v)}</Txt>
+                 <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+-                  <Stat label="Günstigster Preis (alle Zustände, alle Verkäufer)" value={eur(low)} />
++                  <Stat label={low != null || minCond == null ? "Günstigster Preis (alle Zustände, alle Verkäufer)" : "Günstigster Preis (aus geladenen Zustandspreisen, alle Verkäufer)"} value={eur(low ?? minCond)} />
+                 </View>
+                 {trend != null ? <Sub style={{ marginTop: 6, fontSize: 12 }}>Trend (Mischzustände): {eur(trend)}</Sub> : null}
+                 {(() => {
+@@ -162,8 +206,10 @@ export default function CardScreen() {
                      </View>
                    );
                  })()}
+-                {!row ? <Sub style={{ marginTop: 4 }}>Kein Preis vorhanden</Sub> : null}
+-                {row && !fits ? <Sub style={{ marginTop: 4 }}>Kein Preis angezeigt: Cardmarket führt diese Karte nur als gemeinsames Produkt für mehrere Sprachen, ein Preis wäre ungenau. Über den Link ohne Filter kannst du selbst nachsehen und beim Eintrag einen eigenen Wert setzen.</Sub> : null}
 +                <Btn title={`Aktuellen Preis laden (${CONDITIONS.find((c) => c.code === liveCond)?.label ?? liveCond})`} onPress={() => loadLive(v)} busy={liveBusy === v.id} disabled={!v.cardmarket_product_id && !jaProduct} />
 +                {liveMsg[v.id] ? <Sub style={{ marginTop: 4 }}>{liveMsg[v.id]}</Sub> : null}
-                 {!row ? <Sub style={{ marginTop: 4 }}>Kein Preis vorhanden</Sub> : null}
-                 {row && !fits ? <Sub style={{ marginTop: 4 }}>Kein Preis angezeigt: Cardmarket führt diese Karte nur als gemeinsames Produkt für mehrere Sprachen, ein Preis wäre ungenau. Über den Link ohne Filter kannst du selbst nachsehen und beim Eintrag einen eigenen Wert setzen.</Sub> : null}
++                {!row && minCond == null ? <Sub style={{ marginTop: 4 }}>Kein Preis vorhanden</Sub> : null}
++                {row && !fits && minCond == null ? <Sub style={{ marginTop: 4 }}>Kein Preis angezeigt: Cardmarket führt diese Karte nur als gemeinsames Produkt für mehrere Sprachen, ein Preis wäre ungenau. Über den Link ohne Filter kannst du selbst nachsehen und beim Eintrag einen eigenen Wert setzen.</Sub> : null}
                  {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (alle Verkäufer)" onPress={() => Linking.openURL(url)} />}
+                 {url && !fits && <Btn kind="ghost" title="Auf Cardmarket ansehen (ohne Filter)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id, directUrl: card.cardmarket_url })!)} />}
+                 {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (nur Deutschland)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype), germanOnly: true, directUrl: card.cardmarket_url })!)} />}
 diff --git a/src/app/item/[itemId].tsx b/src/app/item/[itemId].tsx
 index 3f2cda6..cbf0db2 100644
 --- a/src/app/item/[itemId].tsx
