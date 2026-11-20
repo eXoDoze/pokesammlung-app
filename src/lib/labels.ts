@@ -133,3 +133,23 @@ export function cardTags(c: { name_en?: string | null; rarity?: string | null })
   const hit = TAGS.filter((t) => tagMatches(t, c));
   return hit.some((t) => t.key === "tagteam") ? hit.filter((t) => t.key !== "gx") : hit;
 }
+
+// ---- Datum: Anzeige/Eingabe deutsch (TT.MM.JJJJ), Speicherung ISO (JJJJ-MM-TT) ----
+export function isoToDe(iso?: string | null): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
+  return m ? `${m[3]}.${m[2]}.${m[1]}` : (iso ?? "");
+}
+export function todayDe(): string {
+  const d = new Date();
+  return `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.${d.getFullYear()}`;
+}
+// "19.11.2026" (auch 1.2.2026 oder 19.11.26) -> "2026-11-19"; null bei ungültigem Datum
+export function deToIso(s: string): string | null {
+  const m = /^\s*(\d{1,2})\.(\d{1,2})\.(\d{2}|\d{4})\s*$/.exec(s);
+  if (!m) return null;
+  const day = Number(m[1]), mon = Number(m[2]);
+  const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
+  const d = new Date(Date.UTC(year, mon - 1, day));
+  if (d.getUTCFullYear() !== year || d.getUTCMonth() !== mon - 1 || d.getUTCDate() !== day) return null;
+  return `${year}-${String(mon).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}

@@ -3,7 +3,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { Chip, Empty, Field, Pill, Row, Screen, Segmented, Sub, Thumb } from "../components/ui";
 import { Item, Value, fetchItems, valuesForItems } from "../lib/data";
-import { FINISH_LABEL, cardName, conditionLabel, eur, setTitle } from "../lib/labels";
+import { FINISH_LABEL, cardName, conditionLabel, eur, isoToDe, setTitle } from "../lib/labels";
 import { useApp } from "../lib/session";
 import { useTheme } from "../lib/theme";
 
@@ -97,7 +97,7 @@ export default function Bestand() {
                     ? <Pill label={i.status === "sold" ? "Verkauft" : "Getauscht"} tone={i.status === "sold" ? "good" : "accent"} />
                     : null}
                   <Text style={{ color: t.text, fontSize: 15, fontWeight: "800" }}>{i.status === "sold" ? (i.sold_price != null ? eur(i.sold_price * i.quantity) : "–") : v ? eur(v.price * i.quantity) : "–"}</Text>
-                  <Text style={{ color: t.sub, fontSize: 10.5, marginTop: 1 }}>{i.status === "sold" ? (i.closed_at ?? "") : v?.kind === "markt" ? "Markt" : v?.kind === "eigen" ? "von Hand" : v?.scope === "other" ? "Ausland" : v ? "Zustand" : "kein Preis"}</Text>
+                  <Text style={{ color: t.sub, fontSize: 10.5, marginTop: 1 }}>{i.status === "sold" ? isoToDe(i.closed_at) : v?.kind === "markt" ? "Markt" : v?.kind === "eigen" ? "von Hand" : v?.scope === "other" ? "Ausland" : v ? "Zustand" : "kein Preis"}</Text>
                   {profit != null && <Text style={{ color: profit >= 0 ? t.good : t.bad, fontSize: 12, fontWeight: "700", marginTop: 3 }}>{profit >= 0 ? "+" : ""}{eur(profit)}</Text>}
                 </View>
               </View>

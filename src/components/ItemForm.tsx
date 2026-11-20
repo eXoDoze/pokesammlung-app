@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View } from "react-native";
 import type { Variant } from "../lib/data";
-import { CONDITIONS, FINISH_LABEL, GRADERS, LANGUAGES, isFirstEd, isShadowless, variantLabel } from "../lib/labels";
+import { CONDITIONS, FINISH_LABEL, GRADERS, LANGUAGES, deToIso, isFirstEd, isShadowless, isoToDe, variantLabel } from "../lib/labels";
 import { Btn, Chip, Field, Row, Sub } from "./ui";
 
 export type FormValues = {
@@ -33,7 +33,7 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
   const [price, setPrice] = useState(initial?.purchase_price != null ? String(initial.purchase_price) : "");
   const [manual, setManual] = useState(initial?.manual_value != null ? String(initial.manual_value) : "");
   const [preferManual, setPreferManual] = useState(initial?.prefer_manual ?? false);
-  const [date, setDate] = useState(initial?.purchased_at ?? "");
+  const [date, setDate] = useState(isoToDe(initial?.purchased_at));
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -45,7 +45,8 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
     const g = num(grade);
     if (graded && g == null) return setErr("Bitte die Note eintragen (z. B. 10).");
     if (graded && company === "Andere" && !otherCompany.trim()) return setErr("Bitte den Namen der Grading-Firma eintragen.");
-    if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return setErr("Datum bitte als JJJJ-MM-TT (z. B. 2026-11-19).");
+    const dateIso = date.trim() ? deToIso(date) : null;
+    if (date.trim() && !dateIso) return setErr("Datum bitte als TT.MM.JJJJ eingeben (z. B. 19.11.2026).");
     setErr(""); setBusy(true);
     try {
       // Variante passend zur gewählten Foil-Art: die gewählte, sonst die erste mit gleicher Art, sonst keine (Preis kommt dann über die Art)
@@ -58,7 +59,7 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
         stamp: stamp.trim() || null,
         language: lang, condition: graded ? "MT" : cond, is_graded: graded,
         grading_company: graded ? (company === "Andere" ? otherCompany.trim() : company) : null, grade: graded ? g : null,
-        quantity: q, purchase_price: num(price), purchased_at: date || null, notes: notes.trim() || null, manual_value: num(manual), prefer_manual: preferManual && num(manual) != null,
+        quantity: q, purchase_price: num(price), purchased_at: dateIso, notes: notes.trim() || null, manual_value: num(manual), prefer_manual: preferManual && num(manual) != null,
       });
     } catch (e: any) { setErr(e.message ?? "Fehler beim Speichern"); }
     setBusy(false);
@@ -105,7 +106,7 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
       <Field label="Kaufpreis pro Stück (€)" value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder="optional" />
       <Field label="Eigener Wert pro Stück (€)" value={manual} onChangeText={setManual} keyboardType="decimal-pad" placeholder="optional, z. B. nach einem eBay-Verkauf" />
       {num(manual) != null && <Row><Chip label={preferManual ? "✓ Eigenen Wert immer verwenden" : "Nur wenn kein Cardmarket-Preis da ist"} on={preferManual} onPress={() => setPreferManual(!preferManual)} /></Row>}
-      <Field label="Kaufdatum (JJJJ-MM-TT)" value={date} onChangeText={setDate} placeholder="optional" />
+      <Field label="Kaufdatum (TT.MM.JJJJ)" value={date} onChangeText={setDate} placeholder="optional" />
       <Field label="Notiz" value={notes} onChangeText={setNotes} placeholder="optional" />
       {!!err && <Sub style={{ color: "#b91c1c", marginBottom: 8 }}>{err}</Sub>}
       <Btn title={saveLabel} onPress={submit} busy={busy} />
