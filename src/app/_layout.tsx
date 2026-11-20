@@ -32,6 +32,7 @@ function Gate() {
       <Stack.Screen name="mastersets" options={{ title: "Mastersets" }} />
       <Stack.Screen name="investiert" options={{ title: "Investiert" }} />
       <Stack.Screen name="wunschliste" options={{ title: "Wunschliste" }} />
+      <Stack.Screen name="karte-hinzufuegen" options={{ title: "Zur Sammlung hinzufügen" }} />
       <Stack.Screen name="card-versions" options={{ title: "Weitere Versionen" }} />
       <Stack.Screen name="custom-card" options={{ title: "Eigene Karte anlegen" }} />
     </Stack>
