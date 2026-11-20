@@ -37,17 +37,24 @@ export const cardName = (c: { name_de?: string | null; name_en?: string | null; 
 export const isFirstEd = (subtype?: string | null) => /first|1st/i.test(subtype ?? "");
 export const isShadowless = (subtype?: string | null) => /shadowless/i.test(subtype ?? "");
 
+// Standard-Druckvarianten (mit Holo/Non-Holo kombiniert) – alles andere (Metal Card, Oversized, Fullart …) ist eine eigene Variante
+const STD_SUBTYPE = /^(first|1st|shadowless|unlimited)/i;
+const stdName = (st: string) => /first|1st/i.test(st) ? "1st Edition" : /shadowless/i.test(st) ? "Shadowless" : "Unlimited";
+
 export function variantLabel(v: { finish: string; subtype?: string | null; stamps?: string[] | null }) {
-  const parts = [FINISH_LABEL[v.finish] ?? v.finish];
-  if (v.subtype) parts.push(v.subtype);
-  if (v.stamps && v.stamps.length) parts.push(`Stempel: ${v.stamps.join(", ")}`);
-  return parts.join(" · ");
+  const fin = FINISH_LABEL[v.finish] ?? v.finish;
+  const st = (v.subtype ?? "").trim();
+  const stamps = v.stamps && v.stamps.length ? `Stempel: ${v.stamps.join(", ")}` : "";
+  // Sondervariante: nur ihre Bezeichnung (z. B. "Metal Card", "Oversized", "Prerelease Promo")
+  if (st && !STD_SUBTYPE.test(st)) return stamps ? `${st} · ${stamps}` : st;
+  const base = st ? `${stdName(st)} ${fin}` : fin;
+  return stamps ? `${base} · ${stamps}` : base;
 }
 
 // Aufdruck für das Kartenbild (wie bei Cardmarket: "Metal Card", "Oversized" …) – ohne 1st Edition/Shadowless
 export function variantBadge(v: { subtype?: string | null; stamps?: string[] | null }) {
   const parts: string[] = [];
-  if (v.subtype && !isFirstEd(v.subtype) && !isShadowless(v.subtype)) parts.push(v.subtype);
+  if (v.subtype && !STD_SUBTYPE.test(v.subtype.trim())) parts.push(v.subtype);
   if (v.stamps && v.stamps.length) parts.push(...v.stamps);
   return parts.join(" · ");
 }
