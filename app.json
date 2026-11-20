@@ -36,12 +36,12 @@
       ],
       "expo-image",
       "expo-status-bar",
-	  [
-		"expo-camera",
-		{
-        "cameraPermission": "PokéKartenDex braucht die Kamera, um Karten zu scannen."
-		}
-	  ]
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "PokéKartenDex braucht die Kamera, um Karten zu scannen."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
@@ -57,6 +57,14 @@
         "projectId": "e6a667b6-4a8f-499d-87c8-20fce4ed773f"
       }
     },
-    "owner": "exodoze"
+    "owner": "exodoze",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e6a667b6-4a8f-499d-87c8-20fce4ed773f",
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    }
   }
 }

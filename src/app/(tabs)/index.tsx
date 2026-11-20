@@ -1,6 +1,7 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import React, { useCallback, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { CardTags } from "../../components/CardTags";
 import { Empty, H, Panel, Pill, Screen, Segmented, Stat, Sub, Thumb, Txt } from "../../components/ui";
 import { fetchItems, valueHistory, valuesForItems } from "../../lib/data";
@@ -77,6 +78,7 @@ export default function Start() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const t = useTheme();
+  const router = useRouter();
   const diff = sum ? sum.value - sum.invested : 0;
 
   const lo = hist.length ? Math.min(...hist.map((h) => h.value)) : 0;
@@ -116,12 +118,21 @@ export default function Start() {
             </Sub>
           </Panel>
         )}
+        <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+          {([["scan", "Scannen", "/scan"], ["ribbon", "Mastersets", "/mastersets"], ["search", "Suchen", "/suche"], ["albums", "Sammlung", "/bestand"]] as const).map(([ic, label, href]) => (
+            <Pressable key={label} onPress={() => router.push(href as any)}
+              style={{ flex: 1, backgroundColor: t.card, borderColor: t.line, borderWidth: 1, borderRadius: 16, paddingVertical: 12, alignItems: "center", gap: 4 }}>
+              <Ionicons name={ic} size={22} color={t.accent} />
+              <Text style={{ color: t.text, fontSize: 12, fontWeight: "700" }}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
         <View style={{ marginTop: 18 }}>
           <Segmented value={String(days)} onChange={(v) => setDays(Number(v))} options={[{ value: "7", label: "7 Tage" }, { value: "30", label: "30 Tage" }]} />
         </View>
-        <H>Meine Sammlung</H>
+        <H>Top-Mover: meine Sammlung</H>
         <MoverList rows={own} own />
-        <H>Gesamtmarkt</H>
+        <H>Top-Mover: Gesamtmarkt</H>
         <Sub style={{ marginBottom: 8 }}>Cardmarket-Durchschnitt (7 bzw. 30 Tage, alle Zustände gemischt), Karten ab 5 €.</Sub>
         <MoverList rows={market} />
       </ScrollView>

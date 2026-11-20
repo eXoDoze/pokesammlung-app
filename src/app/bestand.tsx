@@ -1,7 +1,7 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
-import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
-import { Chip, Empty, Field, Pill, Row, Screen, Segmented, Sub, Thumb } from "../components/ui";
+import { FlatList, Pressable, RefreshControl, Text, View, useWindowDimensions } from "react-native";
+import { CardImg, Chip, Empty, Field, Pill, Row, Screen, Segmented, Sub, Thumb } from "../components/ui";
 import { Item, Value, fetchItems, valuesForItems } from "../lib/data";
 import { FINISH_LABEL, cardName, conditionLabel, eur, isoToDe, setTitle } from "../lib/labels";
 import { useApp } from "../lib/session";
@@ -17,6 +17,10 @@ export default function Bestand() {
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [priceFilter, setPriceFilter] = useState<"alle" | "ohne" | "hand">("alle");
+  const [layout, setLayout] = useState<"liste" | "raster">("liste");
+  const { width: winW } = useWindowDimensions();
+  const GCOLS = 3, GGAP = 10;
+  const gridW = Math.floor((Math.min(winW, 760) - 32 - GGAP * (GCOLS - 1)) / GCOLS);
   const [view, setView] = useState<"owned" | "closed">(params.view === "closed" ? "closed" : "owned");
 
   const load = useCallback(async () => {
@@ -55,6 +59,9 @@ export default function Bestand() {
         <View style={{ marginBottom: 10 }}>
           <Segmented value={view} onChange={(v) => setView(v as "owned" | "closed")} options={[{ value: "owned", label: "Bestand" }, { value: "closed", label: "Verkauft & getauscht" }]} />
         </View>
+        <View style={{ marginBottom: 10 }}>
+          <Segmented value={layout} onChange={(v) => setLayout(v as "liste" | "raster")} options={[{ value: "liste", label: "Liste" }, { value: "raster", label: "Raster" }]} />
+        </View>
         {view === "owned" && (
           <Row>
             <Chip label="Alle" on={priceFilter === "alle"} onPress={() => setPriceFilter("alle")} />
@@ -68,7 +75,8 @@ export default function Bestand() {
           <Text style={{ color: t.text, fontWeight: "800", fontSize: 13 }}>{eur(sum.value)}</Text>
         </View>
       </View>
-      <FlatList data={list} keyExtractor={(i) => i.id}
+      <FlatList data={list} keyExtractor={(i) => i.id} key={layout} numColumns={layout === "raster" ? GCOLS : 1}
+        columnWrapperStyle={layout === "raster" ? { gap: GGAP, marginBottom: GGAP } : undefined}
         contentContainerStyle={{ padding: 16, paddingTop: 4, maxWidth: 760, width: "100%", alignSelf: "center" }}
         refreshControl={<RefreshControl refreshing={busy} onRefresh={load} />}
         ListEmptyComponent={<Empty text={view === "closed" ? "Noch nichts verkauft oder getauscht." : "Noch nichts in der Sammlung. Suche ein Pokémon oder öffne ein Set."} />}
@@ -76,6 +84,25 @@ export default function Bestand() {
           const v = vals.get(i.id);
           const profit = v && i.purchase_price != null ? (v.price - i.purchase_price) * i.quantity : null;
           const setName = setTitle(i.cards.sets as any);
+          if (layout === "raster") {
+            return (
+              <Pressable onPress={() => router.push(`/item/${i.id}`)} style={{ width: gridW }}>
+                <View>
+                  <CardImg uri={i.cards.image_url} width={gridW} height={Math.round(gridW * 1.4)} label={cardName(i.cards)} radius={8} />
+                  {i.quantity > 1 && (
+                    <View style={{ position: "absolute", top: 4, left: 4, backgroundColor: t.accent, borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+                      <Text style={{ color: t.accentText, fontSize: 11, fontWeight: "800" }}>{i.quantity}×</Text>
+                    </View>
+                  )}
+                  <View style={{ position: "absolute", bottom: 4, right: 4, backgroundColor: "rgba(11,8,32,0.85)", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ color: t.text, fontSize: 11, fontWeight: "800" }}>{i.status === "sold" ? (i.sold_price != null ? eur(i.sold_price * i.quantity) : "–") : v ? eur(v.price * i.quantity) : "–"}</Text>
+                  </View>
+                </View>
+                <Text numberOfLines={1} style={{ color: t.text, fontSize: 11.5, fontWeight: "700", marginTop: 4 }}>{cardName(i.cards)}</Text>
+                <Text numberOfLines={1} style={{ color: t.sub, fontSize: 10.5 }}>{i.is_graded ? `${i.grading_company} ${i.grade}` : conditionLabel(i.condition)} · {i.language.toUpperCase()}</Text>
+              </Pressable>
+            );
+          }
           return (
             <Pressable onPress={() => router.push(`/item/${i.id}`)} style={{ marginBottom: 10 }}>
               <View style={{ flexDirection: "row", gap: 12, backgroundColor: t.card, borderRadius: 18, padding: 12, borderColor: t.line, borderWidth: 1 }}>

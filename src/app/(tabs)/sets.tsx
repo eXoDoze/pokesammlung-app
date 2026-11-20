@@ -35,7 +35,7 @@ export default function Sets() {
   const [q, setQ] = useState("");
   const [region, setRegion] = useState("all");
   const [series, setSeries] = useState("all");
-  const [onlyMine, setOnlyMine] = useState(false);
+  const [onlyMine, setOnlyMine] = useState(true); // Standard: nur Sets mit eigenen Karten (leere ausgeblendet)
   const [busy, setBusy] = useState(true);
 
   useEffect(() => {
@@ -88,8 +88,10 @@ export default function Sets() {
 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
+    // Beim Suchen und solange noch nichts in der Sammlung liegt, werden alle Sets durchsucht
+    const hideEmpty = onlyMine && mine.size > 0 && !s;
     return byRegion.filter((x) =>
-      (series === "all" || (x.series ?? "Sonstige") === series) && (!onlyMine || mine.has(x.id)) &&
+      (series === "all" || (x.series ?? "Sonstige") === series) && (!hideEmpty || mine.has(x.id)) &&
       (!s || [x.name_en, x.name_de, x.name_ja, x.name_ko, x.name_zh, x.series, x.id].some((n) => n?.toLowerCase().includes(s))
         || (mineCards.get(x.id) ?? []).some((c) => c.hay.includes(s))));
   }, [byRegion, series, onlyMine, mine, mineCards, q]);
@@ -106,7 +108,7 @@ export default function Sets() {
           <Field label="" value={q} onChangeText={setQ} placeholder="Set oder eine Karte aus deiner Sammlung suchen" />
         </View>
         <Row>
-          <Chip label={`Nur Sets mit meinen Karten${total ? ` (${total})` : ""}`} on={onlyMine} onPress={() => setOnlyMine(!onlyMine)} />
+          <Chip label={onlyMine ? `Leere Sets ausgeblendet${total ? ` (${total} mit Karten)` : ""} · alle anzeigen` : "Alle Sets · nur Sets mit meinen Karten"} on={onlyMine} onPress={() => setOnlyMine(!onlyMine)} />
           <Text style={{ color: t.sub, fontSize: 12, alignSelf: "center", marginLeft: 6, marginBottom: 6 }}>{list.length} Sets</Text>
         </Row>
       </View>
@@ -114,7 +116,7 @@ export default function Sets() {
         columnWrapperStyle={{ gap: GAP, marginBottom: GAP, alignSelf: "center", width: inner }}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
         initialNumToRender={12} windowSize={7}
-        ListEmptyComponent={<Empty text={busy ? "Lade Sets …" : onlyMine ? "Noch keine Karten in dieser Sammlung." : "Keine Sets gefunden."} />}
+        ListEmptyComponent={<Empty text={busy ? "Lade Sets …" : "Keine Sets gefunden. Tippe oben auf „alle anzeigen“ oder suche nach einem Set."} />}
         renderItem={({ item: s }) => {
           const have = mine.get(s.id) ?? 0;
           const pct = s.card_count ? Math.min(1, have / s.card_count) : 0;
