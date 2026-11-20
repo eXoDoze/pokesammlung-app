@@ -5,7 +5,7 @@ import { Alert, Linking, Pressable, ScrollView, View } from "react-native";
 import { CardTags } from "../../components/CardTags";
 import { FormValues, ItemForm } from "../../components/ItemForm";
 import { Btn, Field, H, Panel, Pill, Screen, Segmented, Stat, Sub, Txt } from "../../components/ui";
-import { CondPrice, ITEM_SELECT, Item, PriceRow, Value, findCond, latestCondPrices, latestPrices, valuesForItems } from "../../lib/data";
+import { CondPrice, ITEM_SELECT, Item, PriceRow, Value, findCond, latestCondPrices, latestPrices, priceGuideFits, valuesForItems } from "../../lib/data";
 import { cardName, cardmarketUrl, conditionLabel, deToIso, eur, isoToDe, setTitle, todayDe } from "../../lib/labels";
 import { jaLinkProduct, pickVariant } from "../../lib/data";
 import { supabase } from "../../lib/supabase";
@@ -49,8 +49,10 @@ export default function ItemScreen() {
   const url = cardmarketUrl(urlOpts);
   const urlDe = cardmarketUrl({ ...urlOpts, germanOnly: true });
   const rev = item.finish === "reverse_holo";
-  const trend = row ? (rev ? row.trend_foil : row.trend) : null;
-  const low = row ? (rev ? row.low_foil : row.low) : null;
+  const fits = priceGuideFits(item.language, v);
+  const trend = row && fits ? (rev ? row.trend_foil : row.trend) : null;
+  const low = row && fits ? (rev ? row.low_foil : row.low) : null;
+  const urlPlain = cardmarketUrl({ productId: v?.cardmarket_product_id ?? jaProduct });
   const deCond = findCond(item, cond, "DE");
   const kindLabel = val
     ? val.kind === "zustand" ? `Günstigstes Angebot · ${conditionLabel(item.condition)} · alle Verkäufer`
@@ -112,7 +114,7 @@ export default function ItemScreen() {
               <Txt bold style={{ fontSize: 24 }}>{eur(val.price)}{item.quantity > 1 ? `  ·  ${eur(val.price * item.quantity)} gesamt` : ""}</Txt>
               <Sub>{kindLabel}</Sub>
             </>
-          ) : <Sub>Kein Preis vorhanden. Du kannst unten einen eigenen Wert eintragen.</Sub>}
+          ) : <Sub>{row && !fits ? "Kein Preis angezeigt: Cardmarket führt diese Karte nur als gemeinsames Produkt für mehrere Sprachen, ein Preis wäre ungenau. Schau über den Link ohne Filter nach und trag unten einen eigenen Wert ein." : "Kein Preis vorhanden. Du kannst unten einen eigenen Wert eintragen."}</Sub>}
           {!item.is_graded && (
             <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
               <Stat label={`Nur Verkäufer aus Deutschland · ${conditionLabel(item.condition)}`} value={eur(deCond ? Number(deCond.price) : null)} />
@@ -126,6 +128,7 @@ export default function ItemScreen() {
           )}
           {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (alle Verkäufer)" onPress={() => Linking.openURL(url)} />}
           {urlDe && <Btn kind="ghost" title="Auf Cardmarket ansehen (nur Deutschland)" onPress={() => Linking.openURL(urlDe)} />}
+          {urlPlain && !val && <Btn kind="ghost" title="Auf Cardmarket ansehen (ohne Filter)" onPress={() => Linking.openURL(urlPlain)} />}
         </Panel>
 
         {isClosed ? (

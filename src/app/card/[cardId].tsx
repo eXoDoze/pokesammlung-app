@@ -5,7 +5,7 @@ import { Alert, Linking, Pressable, ScrollView, View } from "react-native";
 import { CardTags } from "../../components/CardTags";
 import { ItemForm, FormValues } from "../../components/ItemForm";
 import { Btn, H, Panel, Pill, Screen, Stat, Sub, Thumb, Txt } from "../../components/ui";
-import { CondPrice, PriceRow, Variant, jaLinkProduct, latestCondPrices, latestPrices, ITEM_SELECT, Item, valuesForItems, Value } from "../../lib/data";
+import { CondPrice, PriceRow, Variant, jaLinkProduct, latestCondPrices, latestPrices, ITEM_SELECT, Item, priceGuideFits, valuesForItems, Value } from "../../lib/data";
 import { CONDITIONS, FINISH_LABEL, cardName, cardmarketUrl, ebaySoldUrl, eur, isFirstEd, variantLabel, setTitle } from "../../lib/labels";
 import { useApp } from "../../lib/session";
 import { supabase } from "../../lib/supabase";
@@ -37,7 +37,7 @@ export default function CardScreen() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from("cards")
-        .select("id,number,name_en,name_de,name_ja,name_ko,name_zh,rarity,image_url,set_id,sets(name_en,name_de,name_ja,name_ko,name_zh,region),card_variants(id,finish,subtype,stamps,cardmarket_product_id)")
+        .select("id,number,name_en,name_de,name_ja,name_ko,name_zh,rarity,image_url,set_id,sets(name_en,name_de,name_ja,name_ko,name_zh,region),card_variants(id,finish,subtype,stamps,cardmarket_product_id,asia_product)")
         .eq("id", id).single();
       const c = data as any as Card | null;
       setCard(c);
@@ -135,8 +135,10 @@ export default function CardScreen() {
           {card.card_variants.map((v) => {
             const row = v.cardmarket_product_id ? prices.get(Number(v.cardmarket_product_id)) : undefined;
             const rev = v.finish === "reverse_holo";
-            const trend = row ? (rev ? row.trend_foil : row.trend) : null;
-            const low = row ? (rev ? row.low_foil : row.low) : null;
+            // Karte und Cardmarket-Produkt müssen zur selben Sprachgruppe gehören, sonst wäre der Preis ungenau
+            const fits = priceGuideFits(card.sets?.region && card.sets.region !== "international" ? "ja" : "de", v);
+            const trend = row && fits ? (rev ? row.trend_foil : row.trend) : null;
+            const low = row && fits ? (rev ? row.low_foil : row.low) : null;
             const url = cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype) });
             return (
               <View key={v.id} style={{ paddingVertical: 6 }}>
@@ -161,7 +163,9 @@ export default function CardScreen() {
                   );
                 })()}
                 {!row ? <Sub style={{ marginTop: 4 }}>Kein Preis vorhanden</Sub> : null}
+                {row && !fits ? <Sub style={{ marginTop: 4 }}>Kein Preis angezeigt: Cardmarket führt diese Karte nur als gemeinsames Produkt für mehrere Sprachen, ein Preis wäre ungenau. Über den Link ohne Filter kannst du selbst nachsehen und beim Eintrag einen eigenen Wert setzen.</Sub> : null}
                 {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (alle Verkäufer)" onPress={() => Linking.openURL(url)} />}
+                {url && !fits && <Btn kind="ghost" title="Auf Cardmarket ansehen (ohne Filter)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id })!)} />}
                 {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (nur Deutschland)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype), germanOnly: true })!)} />}
               </View>
             );

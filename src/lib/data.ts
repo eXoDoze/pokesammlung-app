@@ -4,6 +4,7 @@ import { supabase } from "./supabase";
 export type Variant = {
   id: string; finish: string; subtype: string | null; stamps: string[] | null;
   cardmarket_product_id: number | null;
+  asia_product?: boolean | null; // true = Cardmarket-Produkt gehört zu einer asiatischen Erweiterung (nur diese Sprache)
 };
 export type Item = {
   id: string; collection_id: string; card_id: string; variant_id: string | null;
@@ -31,7 +32,7 @@ export type CondPrice = {
 };
 
 export const ITEM_SELECT =
-  "*, cards(id,name_en,name_de,name_ja,name_ko,name_zh,number,image_url,set_id, sets(name_en,name_de,name_ja,name_ko,name_zh,region), card_variants(id,finish,subtype,stamps,cardmarket_product_id))";
+  "*, cards(id,name_en,name_de,name_ja,name_ko,name_zh,number,image_url,set_id, sets(name_en,name_de,name_ja,name_ko,name_zh,region), card_variants(id,finish,subtype,stamps,cardmarket_product_id,asia_product))";
 
 export async function fetchItems(collectionId: string, statuses: string[] = ["owned"]): Promise<Item[]> {
   const out: Item[] = [];
@@ -99,10 +100,19 @@ export function findCond(item: Item, cond: CondPrice[], scope: "alle" | "DE"): C
     (p.grade ?? null) === (item.grade ?? null) && (p.language === "any" || p.language === item.language));
 }
 
+const ASIAN_LANGS = ["ja", "ko", "zh-cn", "zh-tw"];
+export const isAsianLang = (code: string | null | undefined) => ASIAN_LANGS.includes(String(code ?? ""));
+// Cardmarkets Preisdatei gilt je Produkt über alle Sprachen. Sie passt nur, wenn Karte und Produkt zusammenpassen:
+// asiatische Karte + asiatisches Produkt, oder nicht-asiatische Karte + internationales Produkt.
+// Hängt z. B. eine japanische Karte am internationalen Produkt, wäre der Preis ungenau -> keinen Preis anzeigen.
+export const priceGuideFits = (lang: string | null | undefined, v: Pick<Variant, "asia_product"> | null | undefined) =>
+  isAsianLang(lang) === !!v?.asia_product;
+
 // Wert je Stück (Sammlungswert):
 //  1. eigener Wert (immer Vorrang)
 //  2. günstigstes Angebot im eigenen Zustand, alle Verkäufer ("zustand")
-//  3. günstigster Preis laut Cardmarket-Preisdatei, alle Zustände und Verkäufer ("ab")
+//  3. günstigster Preis laut Cardmarket-Preisdatei, alle Zustände und Verkäufer ("ab") – nur wenn Karte und Produkt
+//     zur selben Sprachgruppe gehören (sonst kein Preis, damit nichts Ungenaues angezeigt wird)
 //  4. nur wenn es keinen Ab-Preis gibt: Cardmarket-Trend ("markt")
 export function valueOf(item: Item, prices: Map<number, PriceRow>, cond: CondPrice[]): Value {
   if (item.manual_value != null) return { price: Number(item.manual_value), kind: "eigen" };
@@ -111,7 +121,7 @@ export function valueOf(item: Item, prices: Map<number, PriceRow>, cond: CondPri
   // Graded-Karten haben nur Zustandspreise
   if (!item.is_graded) {
     const v = pickVariant(item, item.cards.card_variants ?? []);
-    const row = v?.cardmarket_product_id ? prices.get(Number(v.cardmarket_product_id)) : undefined;
+    const row = v?.cardmarket_product_id && priceGuideFits(item.language, v) ? prices.get(Number(v.cardmarket_product_id)) : undefined;
     if (row) {
       const rev = item.finish === "reverse_holo";
       const low = rev ? row.low_foil : row.low;
@@ -143,7 +153,7 @@ export async function valueHistory(items: Item[], days = 30): Promise<{ date: st
   for (const i of items) {
     if (i.is_graded) continue;
     const v = pickVariant(i, i.cards.card_variants ?? []);
-    if (!v?.cardmarket_product_id) continue;
+    if (!v?.cardmarket_product_id || !priceGuideFits(i.language, v)) continue;
     const pid = Number(v.cardmarket_product_id);
     if (!byProduct.has(pid)) byProduct.set(pid, []);
     byProduct.get(pid)!.push({ qty: i.quantity, foil: i.finish === "reverse_holo" });
