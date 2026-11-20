@@ -85,7 +85,7 @@ export default function CardScreen() {
       setCond(await latestCondPrices([id]));
       const label = CONDITIONS.find((c) => c.code === liveCond)?.label ?? liveCond;
       setLiveMsg((m) => ({ ...m, [v.id]: d.all == null
-        ? `Zustand ${label}: aktuell kein Angebot auf Cardmarket gefunden.${d.debug ? ` [Diagnose: ${JSON.stringify(d.debug).slice(0, 700)}]` : ""}`
+        ? `Zustand ${label}: aktuell kein Angebot auf Cardmarket gefunden.${d.debug ? ` [Diagnose: ${JSON.stringify(d.debug).slice(0, 1500)}]` : ""}`
         : `${label}: günstigstes Angebot ${eur(d.all)} (alle Verkäufer, ${d.offers} Angebote)${d.de != null ? ` · ${eur(d.de)} (nur Deutschland)` : ""}${d.cached ? " · vor wenigen Minuten geladen" : " · gerade geladen"}` }));
     } catch (e: any) {
       setLiveMsg((m) => ({ ...m, [v.id]: `Preis konnte nicht geladen werden: ${e.message ?? e}` }));
