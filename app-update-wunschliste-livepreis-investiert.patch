@@ -1,3 +1,55 @@
+diff --git a/src/app/(tabs)/index.tsx b/src/app/(tabs)/index.tsx
+index 5cef612..92e2554 100644
+--- a/src/app/(tabs)/index.tsx
++++ b/src/app/(tabs)/index.tsx
+@@ -47,7 +47,7 @@ function MoverList({ rows, own }: { rows: Mover[]; own?: boolean }) {
+ export default function Start() {
+   const { active } = useApp();
+   const [days, setDays] = useState(7);
+-  const [sum, setSum] = useState<{ count: number; invested: number; value: number; missing: number; own: number; manual: number } | null>(null);
++  const [sum, setSum] = useState<{ count: number; invested: number; value: number; pricedValue: number; missing: number; own: number; manual: number } | null>(null);
+   const [market, setMarket] = useState<Mover[]>([]);
+   const [own, setOwn] = useState<Mover[]>([]);
+   const [busy, setBusy] = useState(false);
+@@ -59,14 +59,15 @@ export default function Start() {
+       if (active) {
+         const items = await fetchItems(active.id);
+         const vals = await valuesForItems(items);
+-        let invested = 0, value = 0, missing = 0, count = 0, ownPrice = 0, manual = 0;
++        let invested = 0, pricedValue = 0, value = 0, missing = 0, count = 0, ownPrice = 0, manual = 0;
+         for (const i of items) {
+           count += i.quantity;
+           if (i.purchase_price != null) invested += i.purchase_price * i.quantity;
+           const v = vals.get(i.id);
++          if (v && i.purchase_price != null) pricedValue += v.price * i.quantity;
+           if (v) { value += v.price * i.quantity; if (v.kind === "zustand") ownPrice += 1; if (v.kind === "eigen") manual += 1; } else missing += 1;
+         }
+-        setSum({ count, invested, value, missing, own: ownPrice, manual });
++        setSum({ count, invested, pricedValue, value, missing, own: ownPrice, manual });
+         setHist(await valueHistory(items, 30));
+         const o = await supabase.rpc("collection_movers", { p_collection: active.id, p_days: days, p_limit: 5 });
+         setOwn((o.data ?? []) as Mover[]);
+@@ -79,7 +80,8 @@ export default function Start() {
+   useFocusEffect(useCallback(() => { load(); }, [load]));
+   const t = useTheme();
+   const router = useRouter();
+-  const diff = sum ? sum.value - sum.invested : 0;
++  // Gewinn/Verlust nur über Karten mit Kaufpreis (sonst würde der Wert der übrigen Karten als Gewinn zählen)
++  const diff = sum ? sum.pricedValue - sum.invested : 0;
+ 
+   const lo = hist.length ? Math.min(...hist.map((h) => h.value)) : 0;
+   const hi = hist.length ? Math.max(...hist.map((h) => h.value)) : 0;
+@@ -109,7 +111,9 @@ export default function Start() {
+             )}
+             <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+               <Stat label="Karten" value={String(sum.count)} />
+-              <Stat label="Investiert" value={eur(sum.invested)} />
++              <Pressable onPress={() => router.push("/investiert" as any)} style={{ flex: 1 }}>
++                <Stat label="Investiert ›" value={eur(sum.invested)} />
++              </Pressable>
+               <Stat label="Gewinn/Verlust" value={eur(diff)} color={diff >= 0 ? t.good : t.bad} />
+             </View>
+             <Sub style={{ marginTop: 10 }}>
 diff --git a/src/app/(tabs)/sammlung.tsx b/src/app/(tabs)/sammlung.tsx
 index 730d26f..d2107ff 100644
 --- a/src/app/(tabs)/sammlung.tsx
@@ -28,13 +80,14 @@ index 730d26f..d2107ff 100644
      { key: "scan", icon: "scan", title: "Karte scannen", sub: "Mit der Kamera hinzufügen", href: "/scan" },
      { key: "binder", icon: "book", title: "Binder", sub: "Kommt als Nächstes", soon: true },
 diff --git a/src/app/_layout.tsx b/src/app/_layout.tsx
-index a2f3094..acd8365 100644
+index a2f3094..2ce292d 100644
 --- a/src/app/_layout.tsx
 +++ b/src/app/_layout.tsx
-@@ -30,6 +30,8 @@ function Gate() {
+@@ -30,6 +30,9 @@ function Gate() {
        <Stack.Screen name="bestand" options={{ title: "Sammlung" }} />
        <Stack.Screen name="scan" options={{ title: "Karte scannen" }} />
        <Stack.Screen name="mastersets" options={{ title: "Mastersets" }} />
++      <Stack.Screen name="investiert" options={{ title: "Investiert" }} />
 +      <Stack.Screen name="wunschliste" options={{ title: "Wunschliste" }} />
 +      <Stack.Screen name="card-versions" options={{ title: "Weitere Versionen" }} />
        <Stack.Screen name="custom-card" options={{ title: "Eigene Karte anlegen" }} />
@@ -272,6 +325,99 @@ index 4dfc14b..09fd925 100644
                  {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (alle Verkäufer)" onPress={() => Linking.openURL(url)} />}
                  {url && !fits && <Btn kind="ghost" title="Auf Cardmarket ansehen (ohne Filter)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id, directUrl: card.cardmarket_url })!)} />}
                  {url && <Btn kind="ghost" title="Auf Cardmarket ansehen (nur Deutschland)" onPress={() => Linking.openURL(cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: lang, reverse: rev, firstEd: isFirstEd(v.subtype), germanOnly: true, directUrl: card.cardmarket_url })!)} />}
+diff --git a/src/app/investiert.tsx b/src/app/investiert.tsx
+new file mode 100644
+index 0000000..b289fe9
+--- /dev/null
++++ b/src/app/investiert.tsx
+@@ -0,0 +1,87 @@
++import { Stack, useFocusEffect, useRouter } from "expo-router";
++import React, { useCallback, useMemo, useState } from "react";
++import { Pressable, ScrollView, View } from "react-native";
++import { Empty, Panel, Pill, Screen, Segmented, Stat, Sub, Thumb, Txt } from "../components/ui";
++import { Item, Value, fetchItems, valuesForItems } from "../lib/data";
++import { cardName, conditionLabel, eur, isoToDe, setTitle } from "../lib/labels";
++import { useApp } from "../lib/session";
++import { useTheme } from "../lib/theme";
++
++export default function InvestedScreen() {
++  const { active } = useApp();
++  const router = useRouter();
++  const t = useTheme();
++  const [items, setItems] = useState<Item[] | null>(null);
++  const [vals, setVals] = useState<Map<string, Value>>(new Map());
++  const [sort, setSort] = useState("paid");
++
++  useFocusEffect(useCallback(() => {
++    if (!active) return;
++    (async () => {
++      const all = await fetchItems(active.id, ["owned"]);
++      const list = all.filter((i) => i.purchase_price != null);
++      setItems(list);
++      setVals(list.length ? await valuesForItems(list) : new Map());
++    })();
++  }, [active]));
++
++  const rows = useMemo(() => {
++    const r = (items ?? []).map((i) => {
++      const paid = Number(i.purchase_price) * i.quantity;
++      const v = vals.get(i.id);
++      const now = v ? v.price * i.quantity : null;
++      return { i, paid, now, diff: now != null ? now - paid : null };
++    });
++    r.sort((a, b) =>
++      sort === "diff_asc" ? (a.diff ?? 1e12) - (b.diff ?? 1e12)
++      : sort === "diff_desc" ? (b.diff ?? -1e12) - (a.diff ?? -1e12)
++      : b.paid - a.paid);
++    return r;
++  }, [items, vals, sort]);
++
++  const paidSum = rows.reduce((s, r) => s + r.paid, 0);
++  const priced = rows.filter((r) => r.now != null);
++  const nowSum = priced.reduce((s, r) => s + (r.now ?? 0), 0);
++  const paidPriced = priced.reduce((s, r) => s + r.paid, 0);
++  const diffSum = nowSum - paidPriced;
++
++  return (
++    <Screen>
++      <Stack.Screen options={{ title: "Investiert" }} />
++      <ScrollView contentContainerStyle={{ padding: 16, maxWidth: 760, width: "100%", alignSelf: "center" }}>
++        {items === null && <Sub>Lade …</Sub>}
++        {items && items.length === 0 && <Empty text="Noch keine Karte mit Kaufpreis. Trage beim Eintrag einen Kaufpreis ein." />}
++        {items && items.length > 0 && (
++          <>
++            <View style={{ flexDirection: "row", gap: 8 }}>
++              <Stat label="Investiert" value={eur(paidSum)} />
++              <Stat label="Aktueller Wert" value={eur(nowSum)} />
++              <Stat label="Gewinn/Verlust" value={eur(diffSum)} color={diffSum >= 0 ? t.good : t.bad} />
++            </View>
++            <Sub style={{ marginTop: 8 }}>{rows.length} Einträge mit Kaufpreis{priced.length < rows.length ? ` · ${rows.length - priced.length} ohne aktuellen Preis (nicht in Wert und Gewinn/Verlust)` : ""}.</Sub>
++            <View style={{ marginTop: 10 }}>
++              <Segmented value={sort} onChange={setSort} options={[{ value: "paid", label: "Kaufpreis" }, { value: "diff_asc", label: "Verlust zuerst" }, { value: "diff_desc", label: "Gewinn zuerst" }]} />
++            </View>
++            <Panel style={{ marginTop: 10 }}>
++              {rows.map(({ i, paid, now, diff }) => (
++                <Pressable key={i.id} onPress={() => router.push(`/item/${i.id}` as any)} style={{ flexDirection: "row", gap: 12, paddingVertical: 8, alignItems: "center" }}>
++                  <Thumb uri={i.cards.image_url} w={44} />
++                  <View style={{ flex: 1 }}>
++                    <Txt bold numberOfLines={1}>{i.quantity > 1 ? `${i.quantity}× ` : ""}{cardName(i.cards)}</Txt>
++                    <Sub numberOfLines={1}>{setTitle(i.cards.sets as any)}{i.cards.number ? ` · #${i.cards.number}` : ""} · {i.is_graded ? `${i.grading_company} ${i.grade}` : conditionLabel(i.condition)} · {i.language.toUpperCase()}</Sub>
++                    <Sub numberOfLines={1}>Gekauft für {eur(Number(i.purchase_price))}{i.quantity > 1 ? ` je Stück (${eur(paid)})` : ""}{i.purchased_at ? ` · ${isoToDe(i.purchased_at)}` : ""}</Sub>
++                  </View>
++                  <View style={{ alignItems: "flex-end" }}>
++                    <Txt bold>{now != null ? eur(now) : "–"}</Txt>
++                    {diff != null ? <Pill label={`${diff >= 0 ? "+" : ""}${eur(diff)}`} tone={diff >= 0 ? "good" : "bad"} /> : null}
++                  </View>
++                </Pressable>
++              ))}
++            </Panel>
++            <Sub style={{ marginTop: 8 }}>Antippen öffnet den Eintrag, dort kannst du den Kaufpreis prüfen und ändern.</Sub>
++          </>
++        )}
++      </ScrollView>
++    </Screen>
++  );
++}
 diff --git a/src/app/item/[itemId].tsx b/src/app/item/[itemId].tsx
 index 3f2cda6..cbf0db2 100644
 --- a/src/app/item/[itemId].tsx
