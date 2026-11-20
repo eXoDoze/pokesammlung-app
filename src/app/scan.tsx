@@ -153,10 +153,11 @@ export default function Scan() {
   }
 
   const showResults = lines !== null && !pick;
+  const showCamera = !showResults && !pick; // Kamera nur, wenn weder Ergebnisliste noch das Hinzufügen-Formular offen ist
   return (
     <Screen>
       <Stack.Screen options={{ title: added.length ? `Scanner · ${added.length} hinzugefügt` : "Karte scannen" }} />
-      {!showResults && (
+      {showCamera && (
         <View style={{ flex: 1 }}>
           <CameraView ref={cam} style={{ flex: 1 }} facing="back" zoom={zoom} enableTorch={torch} autofocus="on" />
           <View pointerEvents="none" style={{ position: "absolute", top: 24, left: 0, right: 0, bottom: 150, alignItems: "center", justifyContent: "center" }}>
