@@ -1,160 +1,113 @@
-import { isFirstEd, isShadowless } from "./labels";
-import { supabase } from "./supabase";
+import React, { useState } from "react";
+import { View } from "react-native";
+import type { Variant } from "../lib/data";
+import { CONDITIONS, FINISH_LABEL, GRADERS, LANGUAGES, deToIso, isFirstEd, isShadowless, isoToDe, variantLabel } from "../lib/labels";
+import { Btn, Chip, Field, Row, Sub } from "./ui";
 
-export type Variant = {
-  id: string; finish: string; subtype: string | null; stamps: string[] | null;
-  cardmarket_product_id: number | null;
+export type FormValues = {
+  variant_id: string | null; finish: string; is_first_edition: boolean; is_shadowless: boolean;
+  stamp: string | null; language: string; condition: string; is_graded: boolean;
+  grading_company: string | null; grade: number | null; quantity: number;
+  purchase_price: number | null; purchased_at: string | null; notes: string | null;
+  manual_value: number | null; prefer_manual?: boolean;
 };
-export type Item = {
-  id: string; collection_id: string; card_id: string; variant_id: string | null;
-  language: string; finish: string; is_first_edition: boolean; is_shadowless: boolean;
-  stamp: string | null; condition: string; is_graded: boolean; grading_company: string | null;
-  grade: number | null; quantity: number; purchase_price: number | null;
-  purchased_at: string | null; notes: string | null; manual_value: number | null; prefer_manual?: boolean;
-  status?: string; closed_at?: string | null; sold_price?: number | null; closed_note?: string | null;
-  cards: {
-    id: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null;
-    number: string; image_url: string | null; set_id: string;
-    sets: { name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null; region?: string | null } | null;
-    card_variants: Variant[];
+
+const num = (s: string) => { const n = Number(s.replace(",", ".")); return s.trim() === "" || !Number.isFinite(n) ? null : n; };
+
+export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, defaultLanguage }: {
+  variants: Variant[]; initial?: Partial<FormValues>; onSave: (v: FormValues) => Promise<void>;
+  saveLabel: string; lockVariant?: boolean; defaultLanguage?: string;
+}) {
+  const startVariant = variants.find((v) => v.id === initial?.variant_id) ?? variants[0];
+  const [variantId, setVariantId] = useState<string | null>(startVariant?.id ?? null);
+  const [finish, setFinish] = useState<string>(initial?.finish ?? startVariant?.finish ?? "non_holo");
+  const [stamp, setStamp] = useState<string>(initial?.stamp ?? startVariant?.stamps?.[0] ?? "");
+  const [lang, setLang] = useState(initial?.language ?? defaultLanguage ?? "de");
+  const [cond, setCond] = useState(initial?.condition ?? "NM");
+  const [graded, setGraded] = useState(initial?.is_graded ?? false);
+  const knownGrader = (c?: string | null) => !!c && GRADERS.includes(c);
+  const [company, setCompany] = useState(initial?.grading_company ? (knownGrader(initial.grading_company) ? initial.grading_company : "Andere") : "PSA");
+  const [otherCompany, setOtherCompany] = useState(initial?.grading_company && !knownGrader(initial.grading_company) ? initial.grading_company : "");
+  const [grade, setGrade] = useState(initial?.grade != null ? String(initial.grade) : "10");
+  const [qty, setQty] = useState(String(initial?.quantity ?? 1));
+  const [price, setPrice] = useState(initial?.purchase_price != null ? String(initial.purchase_price) : "");
+  const [manual, setManual] = useState(initial?.manual_value != null ? String(initial.manual_value) : "");
+  const [date, setDate] = useState(isoToDe(initial?.purchased_at));
+  const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const v = variants.find((x) => x.id === variantId);
+
+  const submit = async () => {
+    const q = parseInt(qty, 10);
+    if (!Number.isFinite(q) || q < 1) return setErr("Anzahl muss mindestens 1 sein.");
+    const g = num(grade);
+    if (graded && g == null) return setErr("Bitte die Note eintragen (z. B. 10).");
+    if (graded && company === "Andere" && !otherCompany.trim()) return setErr("Bitte den Namen der Grading-Firma eintragen.");
+    const dateIso = date.trim() ? deToIso(date) : null;
+    if (date.trim() && !dateIso) return setErr("Datum bitte als TT.MM.JJJJ eingeben (z. B. 19.11.2026).");
+    setErr(""); setBusy(true);
+    try {
+      // Variante passend zur gewählten Foil-Art: die gewählte, sonst die erste mit gleicher Art, sonst keine (Preis kommt dann über die Art)
+      const used = v && v.finish === finish ? v : variants.find((x) => x.finish === finish && !isFirstEd(x.subtype) && !isShadowless(x.subtype)) ?? null;
+      await onSave({
+        variant_id: used?.id ?? null,
+        finish,
+        is_first_edition: used ? isFirstEd(used.subtype) : initial?.is_first_edition ?? false,
+        is_shadowless: used ? isShadowless(used.subtype) : initial?.is_shadowless ?? false,
+        stamp: stamp.trim() || null,
+        language: lang, condition: graded ? "MT" : cond, is_graded: graded,
+        grading_company: graded ? (company === "Andere" ? otherCompany.trim() : company) : null, grade: graded ? g : null,
+        quantity: q, purchase_price: num(price), purchased_at: dateIso, notes: notes.trim() || null, manual_value: num(manual), prefer_manual: num(manual) != null,
+      });
+    } catch (e: any) { setErr(e.message ?? "Fehler beim Speichern"); }
+    setBusy(false);
   };
-};
-export type PriceRow = {
-  cardmarket_product_id: number; snapshot_date: string; trend: number | null; avg: number | null;
-  low: number | null; avg7: number | null; avg30: number | null;
-  trend_foil: number | null; avg_foil: number | null; low_foil: number | null;
-};
-export type CondPrice = {
-  card_id: string; language: string; finish: string; is_first_edition: boolean; stamp: string | null;
-  condition: string; is_graded: boolean; grading_company: string | null; grade: number | null;
-  price: number; seller_scope: string; fetched_at: string;
-};
 
-export const ITEM_SELECT =
-  "*, cards(id,name_en,name_de,name_ja,name_ko,name_zh,number,image_url,set_id, sets(name_en,name_de,name_ja,name_ko,name_zh,region), card_variants(id,finish,subtype,stamps,cardmarket_product_id))";
-
-export async function fetchItems(collectionId: string, statuses: string[] = ["owned"]): Promise<Item[]> {
-  const out: Item[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await supabase.from("collection_items").select(ITEM_SELECT)
-      .eq("collection_id", collectionId).in("status", statuses).order("created_at", { ascending: false })
-      .range(from, from + 999);
-    if (error) throw new Error(error.message);
-    out.push(...((data ?? []) as any));
-    if (!data || data.length < 1000) break;
-  }
-  return out;
-}
-
-const chunk = <T,>(a: T[], n: number) => Array.from({ length: Math.ceil(a.length / n) }, (_, i) => a.slice(i * n, i * n + n));
-
-// Jüngster Cardmarket-Preis je Produkt (Hauptquelle: Cardmarket-Preisdatei)
-export async function latestPrices(productIds: number[]): Promise<Map<number, PriceRow>> {
-  const map = new Map<number, PriceRow>();
-  const since = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
-  for (const ids of chunk([...new Set(productIds)], 150)) {
-    const { data } = await supabase.from("cardmarket_prices").select("*")
-      .in("cardmarket_product_id", ids).eq("source", "cardmarket_file").gte("snapshot_date", since);
-    for (const r of (data ?? []) as PriceRow[]) {
-      const cur = map.get(Number(r.cardmarket_product_id));
-      if (!cur || cur.snapshot_date < r.snapshot_date) map.set(Number(r.cardmarket_product_id), r);
-    }
-  }
-  return map;
-}
-
-export async function latestCondPrices(cardIds: string[]): Promise<CondPrice[]> {
-  const out: CondPrice[] = [];
-  for (const ids of chunk([...new Set(cardIds)], 100)) {
-    const { data } = await supabase.from("condition_prices").select("*")
-      .in("card_id", ids).eq("source", "cardmarket").eq("price_kind", "lowest")
-      .order("fetched_at", { ascending: false }).limit(1000);
-    out.push(...((data ?? []) as CondPrice[]));
-  }
-  return out;
-}
-
-// Welche Cardmarket-Variante gehört zu einem Sammlungseintrag?
-export function pickVariant(item: Pick<Item, "variant_id" | "finish" | "is_first_edition" | "is_shadowless">, variants: Variant[]) {
-  if (item.variant_id) { const v = variants.find((x) => x.id === item.variant_id); if (v) return v; }
-  const same = variants.filter((v) => v.finish === item.finish);
   return (
-    same.find((v) => isFirstEd(v.subtype) === item.is_first_edition && isShadowless(v.subtype) === item.is_shadowless) ??
-    same[0] ?? variants[0]
+    <View>
+      {variants.some((x) => x.subtype || (x.stamps && x.stamps.length > 0)) && (
+        <>
+          <Sub>Variante</Sub>
+          <Row>
+            {variants.map((x) => (
+              <Chip key={x.id} label={variantLabel(x)} on={x.id === variantId}
+                onPress={lockVariant ? undefined : () => { setVariantId(x.id); setFinish(x.finish); setStamp(x.stamps?.[0] ?? ""); }} />
+            ))}
+          </Row>
+        </>
+      )}
+      <Sub>Ausführung</Sub>
+      <Row>
+        {(["non_holo", "holo", "reverse_holo"] as const).map((f) => (
+          <Chip key={f} label={FINISH_LABEL[f] ?? f} on={finish === f} onPress={() => setFinish(f)} />
+        ))}
+      </Row>
+      <Field label="Stempel (optional, z. B. Pokémon League, Prerelease)" value={stamp} onChangeText={setStamp} placeholder="leer = ohne Stempel" />
+      <Sub>Sprache der Karte</Sub>
+      <Row>{LANGUAGES.map((l) => <Chip key={l.code} label={l.label} on={lang === l.code} onPress={() => setLang(l.code)} />)}</Row>
+      <Sub>Zustand</Sub>
+      <Row>
+        {CONDITIONS.map((c) => (
+          <Chip key={c.code} label={c.label} on={!graded && cond === c.code} onPress={() => { setGraded(false); setCond(c.code); }} />
+        ))}
+        <Chip label="Graded" on={graded} onPress={() => setGraded(true)} />
+      </Row>
+      {graded && (
+        <>
+          <Sub>Grading-Firma (bei Cardmarket zählt Note 9/10 als „Mint“, die Firma steht im Kommentar)</Sub>
+          <Row>{GRADERS.map((g) => <Chip key={g} label={g} on={company === g} onPress={() => setCompany(g)} />)}</Row>
+          {company === "Andere" && <Field label="Name der Grading-Firma" value={otherCompany} onChangeText={setOtherCompany} />}
+          <Field label="Note (z. B. 10, 9.5)" value={grade} onChangeText={setGrade} keyboardType="decimal-pad" />
+        </>
+      )}
+      <Field label="Anzahl" value={qty} onChangeText={setQty} keyboardType="number-pad" />
+      <Field label="Kaufpreis pro Stück (€)" value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder="optional" />
+      <Field label="Eigener Wert pro Stück (€)" value={manual} onChangeText={setManual} keyboardType="decimal-pad" placeholder="optional – hat immer Vorrang vor Cardmarket" />
+      <Field label="Kaufdatum (TT.MM.JJJJ)" value={date} onChangeText={setDate} placeholder="optional" />
+      <Field label="Notiz" value={notes} onChangeText={setNotes} placeholder="optional" />
+      {!!err && <Sub style={{ color: "#b91c1c", marginBottom: 8 }}>{err}</Sub>}
+      <Btn title={saveLabel} onPress={submit} busy={busy} />
+    </View>
   );
-}
-
-export type Value = { price: number; kind: "zustand" | "markt" | "eigen"; scope?: string } | null;
-
-// Wert je Stück: Zustandspreis, wenn vorhanden; sonst Marktwert (Trend, Mischzustände)
-export function valueOf(item: Item, prices: Map<number, PriceRow>, cond: CondPrice[]): Value {
-  // Wunsch des Nutzers: eigener Wert hat Vorrang (z. B. Misprint, der bei Cardmarket keine eigene Variante hat)
-  if (item.prefer_manual && item.manual_value != null) return { price: Number(item.manual_value), kind: "eigen" };
-  const c = cond.find((p) =>
-    p.card_id === item.card_id && p.condition === (item.is_graded ? "MT" : item.condition) &&
-    p.finish === item.finish && p.is_first_edition === item.is_first_edition &&
-    (p.stamp ?? null) === (item.stamp ?? null) && p.is_graded === item.is_graded &&
-    (p.grading_company ?? null) === (item.grading_company ?? null) &&
-    (p.grade ?? null) === (item.grade ?? null) && (p.language === "any" || p.language === item.language));
-  if (c) return { price: Number(c.price), kind: "zustand", scope: c.seller_scope };
-  // Marktwert (Graded-Karten haben nur Zustandspreise)
-  if (!item.is_graded) {
-    const v = pickVariant(item, item.cards.card_variants ?? []);
-    const row = v?.cardmarket_product_id ? prices.get(Number(v.cardmarket_product_id)) : undefined;
-    if (row) {
-      const p = item.finish === "reverse_holo" ? row.trend_foil : row.trend;
-      if (p != null) return { price: Number(p), kind: "markt" };
-    }
-  }
-  // Letzter Ausweg: vom Nutzer gesetzter Wert
-  if (item.manual_value != null) return { price: Number(item.manual_value), kind: "eigen" };
-  return null;
-}
-
-// Verknüpfung japanischer Karten mit dem englischen Cardmarket-Produkt (nur für Links)
-export async function jaLinkProduct(cardId: string): Promise<number | null> {
-  if (!cardId.startsWith("ja:")) return null;
-  const { data } = await supabase.from("ja_card_links").select("cardmarket_product_id").eq("card_id", cardId).maybeSingle();
-  return data ? Number(data.cardmarket_product_id) : null;
-}
-
-export async function valuesForItems(items: Item[]) {
-  const productIds = items.flatMap((i) => (i.cards.card_variants ?? []).map((v) => v.cardmarket_product_id)).filter(Boolean) as number[];
-  const [prices, cond] = await Promise.all([latestPrices(productIds), latestCondPrices(items.map((i) => i.card_id))]);
-  return new Map(items.map((i) => [i.id, valueOf(i, prices, cond)] as const));
-}
-
-// Verlauf des Sammlungswerts (Marktwert, ohne Graded) aus den gespeicherten Tagespreisen
-export async function valueHistory(items: Item[], days = 30): Promise<{ date: string; value: number }[]> {
-  const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
-  const byProduct = new Map<number, { qty: number; foil: boolean }[]>();
-  for (const i of items) {
-    if (i.is_graded) continue;
-    const v = pickVariant(i, i.cards.card_variants ?? []);
-    if (!v?.cardmarket_product_id) continue;
-    const pid = Number(v.cardmarket_product_id);
-    if (!byProduct.has(pid)) byProduct.set(pid, []);
-    byProduct.get(pid)!.push({ qty: i.quantity, foil: i.finish === "reverse_holo" });
-  }
-  const sums = new Map<string, { value: number; n: number }>();
-  for (const ids of chunk([...byProduct.keys()], 100)) {
-    for (let from = 0; ; from += 1000) {
-      const { data } = await supabase.from("cardmarket_prices").select("cardmarket_product_id,snapshot_date,trend,trend_foil")
-        .in("cardmarket_product_id", ids).eq("source", "cardmarket_file").gte("snapshot_date", since)
-        .order("snapshot_date").range(from, from + 999);
-      for (const r of (data ?? []) as any[]) {
-        for (const u of byProduct.get(Number(r.cardmarket_product_id)) ?? []) {
-          const p = u.foil ? r.trend_foil : r.trend;
-          if (p == null) continue;
-          const s = sums.get(r.snapshot_date) ?? { value: 0, n: 0 };
-          s.value += Number(p) * u.qty; s.n += 1; sums.set(r.snapshot_date, s);
-        }
-      }
-      if (!data || data.length < 1000) break;
-    }
-  }
-  const maxN = Math.max(0, ...[...sums.values()].map((s) => s.n));
-  // nur Tage mit nahezu vollständiger Abdeckung, sonst entstehen künstliche Sprünge
-  return [...sums.entries()].filter(([, s]) => s.n >= maxN * 0.9).sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, s]) => ({ date, value: Math.round(s.value * 100) / 100 }));
 }

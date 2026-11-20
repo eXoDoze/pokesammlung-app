@@ -1,115 +1,161 @@
-import React, { useState } from "react";
-import { View } from "react-native";
-import type { Variant } from "../lib/data";
-import { CONDITIONS, FINISH_LABEL, GRADERS, LANGUAGES, deToIso, isFirstEd, isShadowless, isoToDe, variantLabel } from "../lib/labels";
-import { Btn, Chip, Field, Row, Sub } from "./ui";
+import { setNative, setTitle } from "../../lib/labels";
+import { Image } from "expo-image";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { FlatList, Pressable, Text, View, useWindowDimensions } from "react-native";
+import { Chip, Dropdown, Empty, Field, Row, Screen } from "../../components/ui";
+import { useApp } from "../../lib/session";
+import { supabase } from "../../lib/supabase";
+import { hueFor, useTheme } from "../../lib/theme";
 
-export type FormValues = {
-  variant_id: string | null; finish: string; is_first_edition: boolean; is_shadowless: boolean;
-  stamp: string | null; language: string; condition: string; is_graded: boolean;
-  grading_company: string | null; grade: number | null; quantity: number;
-  purchase_price: number | null; purchased_at: string | null; notes: string | null;
-  manual_value: number | null; prefer_manual?: boolean;
-};
+type SetRow = { id: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko: string | null; name_zh: string | null; series: string | null; region: string; release_date: string | null; card_count: number | null; logo_url?: string | null; cover_url?: string | null };
 
-const num = (s: string) => { const n = Number(s.replace(",", ".")); return s.trim() === "" || !Number.isFinite(n) ? null : n; };
+const REGIONS = [
+  { value: "all", label: "Alle Sprachen" },
+  { value: "international", label: "🌍 International (EN/DE)" },
+  { value: "japan", label: "🇯🇵 Japanisch" },
+  { value: "korea", label: "🇰🇷 Koreanisch" },
+  { value: "china", label: "🇨🇳 Chinesisch (vereinfacht)" },
+  { value: "taiwan", label: "🇹🇼 Chinesisch (traditionell)" },
+];
+const COLS = 2;
+const GAP = 12;
 
-export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, defaultLanguage }: {
-  variants: Variant[]; initial?: Partial<FormValues>; onSave: (v: FormValues) => Promise<void>;
-  saveLabel: string; lockVariant?: boolean; defaultLanguage?: string;
-}) {
-  const startVariant = variants.find((v) => v.id === initial?.variant_id) ?? variants[0];
-  const [variantId, setVariantId] = useState<string | null>(startVariant?.id ?? null);
-  const [finish, setFinish] = useState<string>(initial?.finish ?? startVariant?.finish ?? "non_holo");
-  const [stamp, setStamp] = useState<string>(initial?.stamp ?? startVariant?.stamps?.[0] ?? "");
-  const [lang, setLang] = useState(initial?.language ?? defaultLanguage ?? "de");
-  const [cond, setCond] = useState(initial?.condition ?? "NM");
-  const [graded, setGraded] = useState(initial?.is_graded ?? false);
-  const knownGrader = (c?: string | null) => !!c && GRADERS.includes(c);
-  const [company, setCompany] = useState(initial?.grading_company ? (knownGrader(initial.grading_company) ? initial.grading_company : "Andere") : "PSA");
-  const [otherCompany, setOtherCompany] = useState(initial?.grading_company && !knownGrader(initial.grading_company) ? initial.grading_company : "");
-  const [grade, setGrade] = useState(initial?.grade != null ? String(initial.grade) : "10");
-  const [qty, setQty] = useState(String(initial?.quantity ?? 1));
-  const [price, setPrice] = useState(initial?.purchase_price != null ? String(initial.purchase_price) : "");
-  const [manual, setManual] = useState(initial?.manual_value != null ? String(initial.manual_value) : "");
-  const [preferManual, setPreferManual] = useState(initial?.prefer_manual ?? false);
-  const [date, setDate] = useState(isoToDe(initial?.purchased_at));
-  const [notes, setNotes] = useState(initial?.notes ?? "");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  const v = variants.find((x) => x.id === variantId);
+export default function Sets() {
+  const router = useRouter();
+  const t = useTheme();
+  const { active } = useApp();
+  const { width } = useWindowDimensions();
+  const inner = Math.min(width, 760) - 32;
+  const tileW = Math.floor((inner - GAP * (COLS - 1)) / COLS);
 
-  const submit = async () => {
-    const q = parseInt(qty, 10);
-    if (!Number.isFinite(q) || q < 1) return setErr("Anzahl muss mindestens 1 sein.");
-    const g = num(grade);
-    if (graded && g == null) return setErr("Bitte die Note eintragen (z. B. 10).");
-    if (graded && company === "Andere" && !otherCompany.trim()) return setErr("Bitte den Namen der Grading-Firma eintragen.");
-    const dateIso = date.trim() ? deToIso(date) : null;
-    if (date.trim() && !dateIso) return setErr("Datum bitte als TT.MM.JJJJ eingeben (z. B. 19.11.2026).");
-    setErr(""); setBusy(true);
-    try {
-      // Variante passend zur gewählten Foil-Art: die gewählte, sonst die erste mit gleicher Art, sonst keine (Preis kommt dann über die Art)
-      const used = v && v.finish === finish ? v : variants.find((x) => x.finish === finish && !isFirstEd(x.subtype) && !isShadowless(x.subtype)) ?? null;
-      await onSave({
-        variant_id: used?.id ?? null,
-        finish,
-        is_first_edition: used ? isFirstEd(used.subtype) : initial?.is_first_edition ?? false,
-        is_shadowless: used ? isShadowless(used.subtype) : initial?.is_shadowless ?? false,
-        stamp: stamp.trim() || null,
-        language: lang, condition: graded ? "MT" : cond, is_graded: graded,
-        grading_company: graded ? (company === "Andere" ? otherCompany.trim() : company) : null, grade: graded ? g : null,
-        quantity: q, purchase_price: num(price), purchased_at: dateIso, notes: notes.trim() || null, manual_value: num(manual), prefer_manual: preferManual && num(manual) != null,
-      });
-    } catch (e: any) { setErr(e.message ?? "Fehler beim Speichern"); }
-    setBusy(false);
-  };
+  const [sets, setSets] = useState<SetRow[]>([]);
+  const [mine, setMine] = useState<Map<string, number>>(new Map());
+  const [mineCards, setMineCards] = useState<Map<string, { id: string; label: string; hay: string }[]>>(new Map());
+  const [q, setQ] = useState("");
+  const [region, setRegion] = useState("all");
+  const [series, setSeries] = useState("all");
+  const [onlyMine, setOnlyMine] = useState(false);
+  const [busy, setBusy] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const all: SetRow[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data } = await supabase.from("sets").select("*").eq("hidden", false)
+          .order("release_date", { ascending: false, nullsFirst: false }).range(from, from + 999);
+        all.push(...((data ?? []) as SetRow[]));
+        if (!data || data.length < 1000) break;
+      }
+      setSets(all); setBusy(false);
+    })();
+  }, []);
+
+  useFocusEffect(useCallback(() => {
+    if (!active) { setMine(new Map()); setMineCards(new Map()); return; }
+    (async () => {
+      const per = new Map<string, Set<string>>();
+      const names = new Map<string, { id: string; label: string; hay: string }[]>();
+      for (let from = 0; ; from += 1000) {
+        const { data } = await supabase.from("collection_items").select("card_id, cards(set_id,name_en,name_de,name_ja,name_ko,name_zh,number)")
+          .eq("collection_id", active.id).eq("status", "owned").range(from, from + 999);
+        for (const r of (data ?? []) as any[]) {
+          const sid = r.cards?.set_id; if (!sid) continue;
+          if (!per.has(sid)) per.set(sid, new Set());
+          if (!per.get(sid)!.has(r.card_id)) {
+            const c = r.cards;
+            const label = c.name_de ?? c.name_en ?? c.name_ja ?? c.name_zh ?? c.name_ko ?? "";
+            if (!names.has(sid)) names.set(sid, []);
+            names.get(sid)!.push({ id: r.card_id, label: `${label}${c.number ? ` #${c.number}` : ""}`, hay: [c.name_en, c.name_de, c.name_ja, c.name_ko, c.name_zh, c.number].filter(Boolean).join(" ").toLowerCase() });
+          }
+          per.get(sid)!.add(r.card_id);
+        }
+        if (!data || data.length < 1000) break;
+      }
+      setMine(new Map([...per].map(([k, v]) => [k, v.size])));
+      setMineCards(names);
+    })();
+  }, [active]));
+
+  const byRegion = useMemo(() => sets.filter((x) => region === "all" || x.region === region), [sets, region]);
+  const seriesOptions = useMemo(() => {
+    const c = new Map<string, number>();
+    for (const x of byRegion) { const k = x.series ?? "Sonstige"; c.set(k, (c.get(k) ?? 0) + 1); }
+    return [{ value: "all", label: "Alle Serien", sub: String(byRegion.length) },
+      ...[...c].map(([k, n]) => ({ value: k, label: k, sub: String(n) }))];
+  }, [byRegion]);
+  useEffect(() => { if (series !== "all" && !seriesOptions.some((o) => o.value === series)) setSeries("all"); }, [seriesOptions, series]);
+
+  const list = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    return byRegion.filter((x) =>
+      (series === "all" || (x.series ?? "Sonstige") === series) && (!onlyMine || mine.has(x.id)) &&
+      (!s || [x.name_en, x.name_de, x.name_ja, x.name_ko, x.name_zh, x.series, x.id].some((n) => n?.toLowerCase().includes(s))
+        || (mineCards.get(x.id) ?? []).some((c) => c.hay.includes(s))));
+  }, [byRegion, series, onlyMine, mine, mineCards, q]);
+  const total = sets.filter((x) => mine.has(x.id)).length;
 
   return (
-    <View>
-      {variants.some((x) => x.subtype || (x.stamps && x.stamps.length > 0)) && (
-        <>
-          <Sub>Variante</Sub>
-          <Row>
-            {variants.map((x) => (
-              <Chip key={x.id} label={variantLabel(x)} on={x.id === variantId}
-                onPress={lockVariant ? undefined : () => { setVariantId(x.id); setFinish(x.finish); setStamp(x.stamps?.[0] ?? ""); }} />
-            ))}
-          </Row>
-        </>
-      )}
-      <Sub>Ausführung</Sub>
-      <Row>
-        {(["non_holo", "holo", "reverse_holo"] as const).map((f) => (
-          <Chip key={f} label={FINISH_LABEL[f] ?? f} on={finish === f} onPress={() => setFinish(f)} />
-        ))}
-      </Row>
-      <Field label="Stempel (optional, z. B. Pokémon League, Prerelease)" value={stamp} onChangeText={setStamp} placeholder="leer = ohne Stempel" />
-      <Sub>Sprache der Karte</Sub>
-      <Row>{LANGUAGES.map((l) => <Chip key={l.code} label={l.label} on={lang === l.code} onPress={() => setLang(l.code)} />)}</Row>
-      <Sub>Zustand</Sub>
-      <Row>
-        {CONDITIONS.map((c) => (
-          <Chip key={c.code} label={c.label} on={!graded && cond === c.code} onPress={() => { setGraded(false); setCond(c.code); }} />
-        ))}
-        <Chip label="Graded" on={graded} onPress={() => setGraded(true)} />
-      </Row>
-      {graded && (
-        <>
-          <Sub>Grading-Firma (bei Cardmarket zählt Note 9/10 als „Mint“, die Firma steht im Kommentar)</Sub>
-          <Row>{GRADERS.map((g) => <Chip key={g} label={g} on={company === g} onPress={() => setCompany(g)} />)}</Row>
-          {company === "Andere" && <Field label="Name der Grading-Firma" value={otherCompany} onChangeText={setOtherCompany} />}
-          <Field label="Note (z. B. 10, 9.5)" value={grade} onChangeText={setGrade} keyboardType="decimal-pad" />
-        </>
-      )}
-      <Field label="Anzahl" value={qty} onChangeText={setQty} keyboardType="number-pad" />
-      <Field label="Kaufpreis pro Stück (€)" value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder="optional" />
-      <Field label="Eigener Wert pro Stück (€)" value={manual} onChangeText={setManual} keyboardType="decimal-pad" placeholder="optional, z. B. nach einem eBay-Verkauf" />
-      {num(manual) != null && <Row><Chip label={preferManual ? "✓ Eigenen Wert immer verwenden" : "Nur wenn kein Cardmarket-Preis da ist"} on={preferManual} onPress={() => setPreferManual(!preferManual)} /></Row>}
-      <Field label="Kaufdatum (TT.MM.JJJJ)" value={date} onChangeText={setDate} placeholder="optional" />
-      <Field label="Notiz" value={notes} onChangeText={setNotes} placeholder="optional" />
-      {!!err && <Sub style={{ color: "#b91c1c", marginBottom: 8 }}>{err}</Sub>}
-      <Btn title={saveLabel} onPress={submit} busy={busy} />
-    </View>
+    <Screen>
+      <View style={{ padding: 16, paddingBottom: 8, maxWidth: 760, width: "100%", alignSelf: "center" }}>
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <Dropdown label="Sprache" value={region} options={REGIONS} onChange={setRegion} />
+          <Dropdown label="Serie" value={series} options={seriesOptions} onChange={setSeries} />
+        </View>
+        <View style={{ marginTop: 10 }}>
+          <Field label="" value={q} onChangeText={setQ} placeholder="Set oder eine Karte aus deiner Sammlung suchen" />
+        </View>
+        <Row>
+          <Chip label={`Nur Sets mit meinen Karten${total ? ` (${total})` : ""}`} on={onlyMine} onPress={() => setOnlyMine(!onlyMine)} />
+          <Text style={{ color: t.sub, fontSize: 12, alignSelf: "center", marginLeft: 6, marginBottom: 6 }}>{list.length} Sets</Text>
+        </Row>
+      </View>
+      <FlatList data={list} key={COLS} numColumns={COLS} keyExtractor={(s) => s.id}
+        columnWrapperStyle={{ gap: GAP, marginBottom: GAP, alignSelf: "center", width: inner }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
+        initialNumToRender={12} windowSize={7}
+        ListEmptyComponent={<Empty text={busy ? "Lade Sets …" : onlyMine ? "Noch keine Karten in dieser Sammlung." : "Keine Sets gefunden."} />}
+        renderItem={({ item: s }) => {
+          const have = mine.get(s.id) ?? 0;
+          const pct = s.card_count ? Math.min(1, have / s.card_count) : 0;
+          const img = s.logo_url ?? s.cover_url ?? null;
+          const code = s.id.includes(":") ? s.id.split(":")[1] : s.id;
+          const hue = hueFor(s.id);
+          return (
+            <Pressable onPress={() => router.push(`/set/${encodeURIComponent(s.id)}`)} style={{ width: tileW }}>
+              <View style={{ backgroundColor: t.card, borderRadius: 18, overflow: "hidden", borderColor: have > 0 ? t.accent : t.line, borderWidth: have > 0 ? 1.5 : 1 }}>
+                <View style={{ height: tileW * 0.72, alignItems: "center", justifyContent: "center", backgroundColor: `hsl(${hue}, 45%, 19%)` }}>
+                  {img
+                    ? <Image source={{ uri: img }} style={{ width: "84%", height: "84%" }} contentFit="contain" />
+                    : <Text style={{ color: `hsl(${hue}, 85%, 82%)`, fontSize: 24, fontWeight: "800", textAlign: "center", paddingHorizontal: 8 }} numberOfLines={2}>{code}</Text>}
+                  {have > 0 && (
+                    <View style={{ position: "absolute", top: 8, right: 8, backgroundColor: t.accent, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ color: t.accentText, fontSize: 11, fontWeight: "700" }}>{have}{s.card_count ? `/${s.card_count}` : ""}</Text>
+                    </View>
+                  )}
+                </View>
+                <View style={{ padding: 10, minHeight: 64 }}>
+                  <Text numberOfLines={2} style={{ color: t.text, fontSize: 14, fontWeight: "700" }}>{setTitle(s, s.id)}</Text>
+                  {setNative(s) ? <Text numberOfLines={1} style={{ color: t.sub, fontSize: 11, marginTop: 1 }}>{setNative(s)}</Text> : null}
+                  {(() => {
+                    const k = q.trim().toLowerCase();
+                    if (!k) return null;
+                    if ([s.name_en, s.name_de, s.name_ja, s.name_ko, s.name_zh, s.series, s.id].some((n) => n?.toLowerCase().includes(k))) return null;
+                    const hit = (mineCards.get(s.id) ?? []).filter((c) => c.hay.includes(k));
+                    return hit.length ? <Text numberOfLines={2} style={{ color: t.accent, fontSize: 11, marginTop: 3 }}>Deine Karte: {hit.slice(0, 2).map((c) => c.label).join(", ")}{hit.length > 2 ? ` +${hit.length - 2}` : ""}</Text> : null;
+                  })()}
+                  <Text style={{ color: t.sub, fontSize: 12, marginTop: 3 }}>{[s.release_date?.slice(0, 4), s.card_count ? `${s.card_count} Karten` : null].filter(Boolean).join(" · ")}</Text>
+                </View>
+                {have > 0 && (
+                  <View style={{ height: 4, backgroundColor: t.chip }}>
+                    <View style={{ height: 4, width: `${pct * 100}%`, backgroundColor: t.accent2 }} />
+                  </View>
+                )}
+              </View>
+            </Pressable>
+          );
+        }}
+      />
+    </Screen>
   );
 }
