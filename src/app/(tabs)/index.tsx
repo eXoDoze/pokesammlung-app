@@ -47,7 +47,7 @@ function MoverList({ rows, own }: { rows: Mover[]; own?: boolean }) {
 export default function Start() {
   const { active } = useApp();
   const [days, setDays] = useState(7);
-  const [sum, setSum] = useState<{ count: number; invested: number; value: number; missing: number; own: number; manual: number } | null>(null);
+  const [sum, setSum] = useState<{ count: number; invested: number; value: number; pricedValue: number; missing: number; own: number; manual: number } | null>(null);
   const [market, setMarket] = useState<Mover[]>([]);
   const [own, setOwn] = useState<Mover[]>([]);
   const [busy, setBusy] = useState(false);
@@ -59,14 +59,15 @@ export default function Start() {
       if (active) {
         const items = await fetchItems(active.id);
         const vals = await valuesForItems(items);
-        let invested = 0, value = 0, missing = 0, count = 0, ownPrice = 0, manual = 0;
+        let invested = 0, pricedValue = 0, value = 0, missing = 0, count = 0, ownPrice = 0, manual = 0;
         for (const i of items) {
           count += i.quantity;
           if (i.purchase_price != null) invested += i.purchase_price * i.quantity;
           const v = vals.get(i.id);
+          if (v && i.purchase_price != null) pricedValue += v.price * i.quantity;
           if (v) { value += v.price * i.quantity; if (v.kind === "zustand") ownPrice += 1; if (v.kind === "eigen") manual += 1; } else missing += 1;
         }
-        setSum({ count, invested, value, missing, own: ownPrice, manual });
+        setSum({ count, invested, pricedValue, value, missing, own: ownPrice, manual });
         setHist(await valueHistory(items, 30));
         const o = await supabase.rpc("collection_movers", { p_collection: active.id, p_days: days, p_limit: 5 });
         setOwn((o.data ?? []) as Mover[]);
@@ -79,7 +80,8 @@ export default function Start() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const t = useTheme();
   const router = useRouter();
-  const diff = sum ? sum.value - sum.invested : 0;
+  // Gewinn/Verlust nur über Karten mit Kaufpreis (sonst würde der Wert der übrigen Karten als Gewinn zählen)
+  const diff = sum ? sum.pricedValue - sum.invested : 0;
 
   const lo = hist.length ? Math.min(...hist.map((h) => h.value)) : 0;
   const hi = hist.length ? Math.max(...hist.map((h) => h.value)) : 0;
@@ -109,7 +111,9 @@ export default function Start() {
             )}
             <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
               <Stat label="Karten" value={String(sum.count)} />
-              <Stat label="Investiert" value={eur(sum.invested)} />
+              <Pressable onPress={() => router.push("/investiert" as any)} style={{ flex: 1 }}>
+                <Stat label="Investiert ›" value={eur(sum.invested)} />
+              </Pressable>
               <Stat label="Gewinn/Verlust" value={eur(diff)} color={diff >= 0 ? t.good : t.bad} />
             </View>
             <Sub style={{ marginTop: 10 }}>
