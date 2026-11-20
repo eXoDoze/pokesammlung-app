@@ -1,7 +1,7 @@
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import { FlatList, Pressable, RefreshControl, Text, View } from "react-native";
-import { Empty, Field, Pill, Screen, Segmented, Sub, Thumb } from "../components/ui";
+import { Chip, Empty, Field, Pill, Row, Screen, Segmented, Sub, Thumb } from "../components/ui";
 import { Item, Value, fetchItems, valuesForItems } from "../lib/data";
 import { FINISH_LABEL, cardName, conditionLabel, eur, setTitle } from "../lib/labels";
 import { useApp } from "../lib/session";
@@ -16,6 +16,7 @@ export default function Bestand() {
   const [vals, setVals] = useState<Map<string, Value>>(new Map());
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
+  const [priceFilter, setPriceFilter] = useState<"alle" | "ohne" | "hand">("alle");
   const [view, setView] = useState<"owned" | "closed">(params.view === "closed" ? "closed" : "owned");
 
   const load = useCallback(async () => {
@@ -27,8 +28,16 @@ export default function Bestand() {
 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return items.filter((i) => !s || [i.cards.name_en, i.cards.name_de, i.cards.name_ja, i.cards.number, i.cards.sets?.name_de, i.cards.sets?.name_en].some((x) => x?.toLowerCase().includes(s)));
-  }, [items, q]);
+    return items.filter((i) => {
+      if (view === "owned" && priceFilter !== "alle") {
+        const v = vals.get(i.id);
+        if (priceFilter === "ohne" && v) return false;
+        if (priceFilter === "hand" && v?.kind !== "eigen") return false;
+      }
+      return !s || [i.cards.name_en, i.cards.name_de, i.cards.name_ja, i.cards.number, i.cards.sets?.name_de, i.cards.sets?.name_en].some((x) => x?.toLowerCase().includes(s));
+    });
+  }, [items, q, vals, view, priceFilter]);
+  const noPriceCount = useMemo(() => items.filter((i) => !vals.get(i.id)).length, [items, vals]);
 
   const sum = useMemo(() => {
     let cnt = 0, value = 0;
@@ -46,6 +55,13 @@ export default function Bestand() {
         <View style={{ marginBottom: 10 }}>
           <Segmented value={view} onChange={(v) => setView(v as "owned" | "closed")} options={[{ value: "owned", label: "Bestand" }, { value: "closed", label: "Verkauft & getauscht" }]} />
         </View>
+        {view === "owned" && (
+          <Row>
+            <Chip label="Alle" on={priceFilter === "alle"} onPress={() => setPriceFilter("alle")} />
+            <Chip label={`Ohne Preis (${noPriceCount})`} on={priceFilter === "ohne"} onPress={() => setPriceFilter("ohne")} />
+            <Chip label="Preis von Hand" on={priceFilter === "hand"} onPress={() => setPriceFilter("hand")} />
+          </Row>
+        )}
         <Field label="" value={q} onChangeText={setQ} placeholder="In meiner Sammlung suchen: Name, Nummer oder Set" />
         <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
           <Sub>{sum.cnt} Karten · {list.length} Einträge{view === "closed" ? " · Erlös" : ""}</Sub>
