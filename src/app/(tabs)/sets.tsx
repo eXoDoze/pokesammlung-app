@@ -42,7 +42,7 @@ export default function Sets() {
     (async () => {
       const all: SetRow[] = [];
       for (let from = 0; ; from += 1000) {
-        const { data } = await supabase.from("sets").select("*")
+        const { data } = await supabase.from("sets").select("*").eq("hidden", false)
           .order("release_date", { ascending: false, nullsFirst: false }).range(from, from + 999);
         all.push(...((data ?? []) as SetRow[]));
         if (!data || data.length < 1000) break;
