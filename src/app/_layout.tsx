@@ -1,9 +1,31 @@
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import React, { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
+import * as Updates from "expo-updates";
+import React, { useEffect, useRef } from "react";
+import { ActivityIndicator, Alert, View } from "react-native";
 import { AppProvider, useApp } from "../lib/session";
 import { useTheme } from "../lib/theme";
+
+// Beim Start nach App-Updates suchen, im Hintergrund laden und dann fragen: später oder jetzt neu starten.
+function UpdatePrompt() {
+  const { isUpdatePending } = Updates.useUpdates();
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!Updates.isEnabled) return;
+    (async () => {
+      try { const r = await Updates.checkForUpdateAsync(); if (r.isAvailable) await Updates.fetchUpdateAsync(); } catch { /* offline o. ä.: ignorieren */ }
+    })();
+  }, []);
+  useEffect(() => {
+    if (!isUpdatePending || asked.current) return;
+    asked.current = true;
+    Alert.alert("Update verfügbar", "Eine neue Version der App ist bereit.", [
+      { text: "Später", style: "cancel" },
+      { text: "Jetzt installieren", onPress: () => { Updates.reloadAsync().catch(() => {}); } },
+    ]);
+  }, [isUpdatePending]);
+  return null;
+}
 
 function Gate() {
   const { session, ready } = useApp();
@@ -43,6 +65,7 @@ export default function Root() {
   return (
     <AppProvider>
       <StatusBar style="light" />
+      <UpdatePrompt />
       <Gate />
     </AppProvider>
   );

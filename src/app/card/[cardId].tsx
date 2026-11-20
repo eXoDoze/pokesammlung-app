@@ -35,6 +35,7 @@ export default function CardScreen() {
   const [heroVid, setHeroVid] = useState<string | null>(null);
   const [openPrices, setOpenPrices] = useState(false);
   const [openLinks, setOpenLinks] = useState(false);
+  const [openMine, setOpenMine] = useState(false);
   const t = useTheme();
   const [mine, setMine] = useState<{ item: Item; value: Value }[]>([]);
 
@@ -182,6 +183,7 @@ export default function CardScreen() {
             <Sub style={{ marginTop: 12 }}>Zustand für die Preisabfrage</Sub>
             <Row>{CONDITIONS.map((c) => <Chip key={c.code} label={c.label} on={liveCond === c.code} onPress={() => setLiveCond(c.code)} />)}</Row>
             {hv && <Btn title={`Aktuellen Preis laden (${condLabel})`} onPress={() => loadLive(hv)} busy={liveBusy === hv.id} disabled={!hv.cardmarket_product_id && !jaProduct} />}
+            {hv && liveBusy === hv.id ? <Sub style={{ marginTop: 4 }}>Der Preis wird live von Cardmarket geholt. Das kann bis zu etwa 1–2 Minuten dauern.</Sub> : null}
             {hv && liveMsg[hv.id] ? <Sub style={{ marginTop: 4 }}>{liveMsg[hv.id]}</Sub> : null}
             {hv && !hv.cardmarket_product_id && !jaProduct ? <Sub style={{ marginTop: 4 }}>Für diese Karte ist kein Cardmarket-Produkt bekannt. Du kannst beim Eintrag einen eigenen Wert setzen.</Sub> : null}
           </Panel>
@@ -207,6 +209,17 @@ export default function CardScreen() {
 
           {/* Aufklappbare Zeilen */}
           <View style={{ marginTop: 14, borderRadius: 18, backgroundColor: t.card, borderColor: t.line, borderWidth: 1, overflow: "hidden" }}>
+            {mine.length > 0 && (
+              <>
+                <Line title="In der Sammlung ansehen" sub={`${mine.reduce((n, m) => n + m.item.quantity, 0)} Stück in ${mine.length} ${mine.length === 1 ? "Eintrag" : "Einträgen"}`} open={mine.length > 1 ? openMine : undefined}
+                  onPress={() => (mine.length === 1 ? router.push(`/item/${mine[0].item.id}`) : setOpenMine((x) => !x))} />
+                {mine.length > 1 && openMine && mine.map(({ item: it }) => (
+                  <Pressable key={it.id} onPress={() => router.push(`/item/${it.id}`)} style={{ paddingVertical: 12, paddingHorizontal: 16, borderBottomColor: t.line, borderBottomWidth: 1 }}>
+                    <Txt>{it.quantity > 1 ? `${it.quantity}× ` : ""}{FINISH_LABEL[it.finish] ?? it.finish} · {it.is_graded ? `${it.grading_company} ${it.grade}` : it.condition} · {it.language.toUpperCase()} ›</Txt>
+                  </Pressable>
+                ))}
+              </>
+            )}
             <Line title="Preise je Zustand" sub="Günstigste Angebote nach Zustand" open={openPrices} onPress={() => setOpenPrices((x) => !x)} />
             {openPrices && (
               <View style={{ padding: 16, borderBottomColor: t.line, borderBottomWidth: 1 }}>
