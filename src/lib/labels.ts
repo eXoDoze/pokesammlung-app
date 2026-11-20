@@ -44,28 +44,26 @@ const stdName = (st: string) => /first|1st/i.test(st) ? "1st Edition" : /shadowl
 export function variantLabel(v: { finish: string; subtype?: string | null; stamps?: string[] | null }) {
   const fin = FINISH_LABEL[v.finish] ?? v.finish;
   const st = (v.subtype ?? "").trim();
-  const stamps = v.stamps && v.stamps.length ? `Stempel: ${v.stamps.join(", ")}` : "";
   // Sondervariante: nur ihre Bezeichnung (z. B. "Metal Card", "Oversized", "Prerelease Promo")
-  if (st && !STD_SUBTYPE.test(st)) return stamps ? `${st} · ${stamps}` : st;
-  const base = st ? `${stdName(st)} ${fin}` : fin;
-  return stamps ? `${base} · ${stamps}` : base;
+  if (st && !STD_SUBTYPE.test(st)) return st;
+  return st ? `${stdName(st)} ${fin}` : fin;
 }
 
-// Aufdruck für das Kartenbild (wie bei Cardmarket: "Metal Card", "Oversized" …) – ohne 1st Edition/Shadowless
+// Aufdruck für das Kartenbild (wie bei Cardmarket: "Metal Card", "Oversized" …) – ohne 1st Edition/Shadowless/Unlimited
 export function variantBadge(v: { subtype?: string | null; stamps?: string[] | null }) {
-  const parts: string[] = [];
-  if (v.subtype && !STD_SUBTYPE.test(v.subtype.trim())) parts.push(v.subtype);
-  if (v.stamps && v.stamps.length) parts.push(...v.stamps);
-  return parts.join(" · ");
+  return v.subtype && !STD_SUBTYPE.test(v.subtype.trim()) ? v.subtype.trim() : "";
 }
 
-// Beschriftungen aller Varianten einer Karte; gleiche Beschriftungen werden nach Cardmarket-Produktnummer als "Version 1, 2 …" unterschieden
+// Beschriftungen aller Varianten einer Karte. Gleiche Beschriftungen werden, wenn sie sich im Stempel unterscheiden, mit dem Stempel,
+// sonst nach Cardmarket-Produktnummer als "Version 1, 2 …" unterschieden.
 export function variantLabels<T extends { id: string; finish: string; subtype?: string | null; stamps?: string[] | null; cardmarket_product_id?: number | null }>(vs: T[]) {
   const out = new Map<string, string>();
   const groups = new Map<string, T[]>();
   for (const v of vs) { const l = variantLabel(v); if (!groups.has(l)) groups.set(l, []); groups.get(l)!.push(v); }
   for (const [l, g] of groups) {
     if (g.length === 1) { out.set(g[0].id, l); continue; }
+    const stampOf = (v: T) => (v.stamps ?? []).join(", ");
+    if (new Set(g.map(stampOf)).size === g.length) { g.forEach((v) => out.set(v.id, stampOf(v) ? `${l} · ${stampOf(v)}` : l)); continue; }
     [...g].sort((a, b) => (a.cardmarket_product_id ?? 0) - (b.cardmarket_product_id ?? 0)).forEach((v, i) => out.set(v.id, `${l} · Version ${i + 1}`));
   }
   return out;
