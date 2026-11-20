@@ -1,0 +1,22 @@
+diff --git a/app.json b/app.json
+index 66300e8..1056e59 100644
+--- a/app.json
++++ b/app.json
+@@ -13,7 +13,7 @@
+     "android": {
+       "package": "de.pokekartendex.app",
+       "adaptiveIcon": {
+-        "backgroundColor": "#E6F4FE",
++        "backgroundColor": "#3b2599",
+         "foregroundImage": "./assets/images/android-icon-foreground.png",
+         "backgroundImage": "./assets/images/android-icon-background.png",
+         "monochromeImage": "./assets/images/android-icon-monochrome.png"
+@@ -29,7 +29,7 @@
+       [
+         "expo-splash-screen",
+         {
+-          "backgroundColor": "#208AEF",
++          "backgroundColor": "#2a1a6e",
+           "image": "./assets/images/splash-icon.png",
+           "imageWidth": 76
+         }
