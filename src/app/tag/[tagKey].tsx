@@ -9,7 +9,7 @@ type Row = { id: string; number: string; name_en: string | null; name_de: string
 
 // Alle Karten eines Typs (z. B. Tag Team, SIR) über alle Sets hinweg
 export default function TagScreen() {
-  const { key } = useLocalSearchParams<{ key: string }>();
+  const { tagKey: key } = useLocalSearchParams<{ tagKey: string }>();
   const tag = tagByKey(String(key));
   const router = useRouter();
   const { width } = useWindowDimensions();

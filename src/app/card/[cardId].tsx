@@ -19,7 +19,7 @@ type Card = {
 };
 
 export default function CardScreen() {
-  const { id: raw } = useLocalSearchParams<{ id: string }>();
+  const { cardId: raw } = useLocalSearchParams<{ cardId: string }>();
   const id = decodeURIComponent(String(raw));
   const { active } = useApp();
   const router = useRouter();

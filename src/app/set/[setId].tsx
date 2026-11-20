@@ -15,7 +15,7 @@ type Entry = { key: string; card: Card; variant?: Variant; owned: boolean };
 const natural = (a: string, b: string) => a.localeCompare(b, "en", { numeric: true });
 
 export default function SetScreen() {
-  const { id: raw } = useLocalSearchParams<{ id: string }>();
+  const { setId: raw } = useLocalSearchParams<{ setId: string }>();
   const id = decodeURIComponent(String(raw));
   const { active } = useApp();
   const router = useRouter();

@@ -12,7 +12,7 @@ import { supabase } from "../../lib/supabase";
 import { hueFor } from "../../lib/theme";
 
 export default function ItemScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { itemId: id } = useLocalSearchParams<{ itemId: string }>();
   const router = useRouter();
   const [item, setItem] = useState<Item | null>(null);
   const [jaProduct, setJaProduct] = useState<number | null>(null);
