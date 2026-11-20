@@ -1,17 +1,29 @@
 import { Image } from "expo-image";
 import { useSegments } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import React, { useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, FlatList, Keyboard, Modal, Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from "react-native";
 import { useTheme } from "../lib/theme";
 
+// Seite mit Hintergrund. Ist die Bildschirmtastatur offen, wird die Seite unten gekürzt, sodass der untere Rand an der Oberkante der Tastatur "andockt".
+// Gemessen wird, wie weit die Tastatur in die Seite hineinragt; wenn Android die Seite schon selbst verkleinert, bleibt es bei 0 (kein doppeltes Anpassen).
 export function Screen({ children }: { children: React.ReactNode }) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
   const segments = useSegments();
+  const ref = useRef<View>(null);
+  const [kbPad, setKbPad] = useState(0);
   // In den Tabs kümmert sich die Tab-Leiste um den unteren Rand, sonst hier (Android-Navigationsknöpfe / Gestenleiste)
   const inTabs = (segments as string[])[0] === "(tabs)";
-  return <View style={{ flex: 1, backgroundColor: t.bg, paddingBottom: inTabs ? 0 : insets.bottom }}>{children}</View>;
+  useEffect(() => {
+    const measure = (kbTop: number) => setTimeout(() => {
+      ref.current?.measureInWindow((_x, y, _w, h) => setKbPad(Math.max(0, Math.round(y + h - kbTop))));
+    }, 60);
+    const show = Keyboard.addListener("keyboardDidShow", (e) => measure(e.endCoordinates.screenY));
+    const hide = Keyboard.addListener("keyboardDidHide", () => setKbPad(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  return <View ref={ref} collapsable={false} style={{ flex: 1, backgroundColor: t.bg, paddingBottom: kbPad > 0 ? kbPad : inTabs ? 0 : insets.bottom }}>{children}</View>;
 }
 export function H({ children }: { children: React.ReactNode }) {
   const t = useTheme();

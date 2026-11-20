@@ -12,7 +12,7 @@ export type Item = {
   stamp: string | null; condition: string; is_graded: boolean; grading_company: string | null;
   grade: number | null; quantity: number; purchase_price: number | null;
   purchased_at: string | null; notes: string | null; manual_value: number | null; prefer_manual?: boolean;
-  status?: string; closed_at?: string | null; sold_price?: number | null; closed_note?: string | null;
+  status?: string; binder_id?: string | null; closed_at?: string | null; sold_price?: number | null; closed_note?: string | null;
   cards: {
     id: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null;
     number: string; image_url: string | null; set_id: string; cardmarket_url?: string | null;

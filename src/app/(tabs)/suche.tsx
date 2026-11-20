@@ -42,6 +42,7 @@ export default function Suche() {
   const load = useCallback(async (term: string, reg: string, offset: number) => {
     const my = ++reqId.current;
     setBusy(true); setErr("");
+    // Nummern wie "205/165" und Illustratoren werden serverseitig in search_cards gefunden (SQL 090)
     const { data, error } = await supabase.rpc("search_cards", { p_q: term, p_region: reg, p_limit: PAGE, p_offset: offset });
     if (my !== reqId.current) return; // veraltete Antwort
     setBusy(false);
@@ -61,12 +62,12 @@ export default function Suche() {
   }, [q, region]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const more = () => { if (!busy && !done && rows.length > 0) load(q.trim(), region, rows.length); };
-  const hint = q.trim().length < 2 ? "Gib einen Pokémon-Namen ein, z. B. Pikachu, Glurak oder Charizard." : busy ? "Suche …" : err ? `Fehler: ${err}` : "Keine Karten gefunden.";
+  const hint = q.trim().length < 2 ? "Gib einen Pokémon-Namen, ein Set oder eine Nummer ein, z. B. Pikachu, 205/165 oder einen Illustrator wie Arita." : busy ? "Suche …" : err ? `Fehler: ${err}` : "Keine Karten gefunden.";
 
   return (
     <Screen>
       <View style={{ padding: 16, paddingBottom: 8, maxWidth: 760, width: "100%", alignSelf: "center" }}>
-        <Field label="" value={q} onChangeText={setQ} placeholder="Pokémon suchen (Deutsch, Englisch, Japanisch …)" autoCorrect={false} autoCapitalize="none" />
+        <Field label="" value={q} onChangeText={setQ} placeholder="Name, Nummer (205/165) oder Illustrator" autoCorrect={false} autoCapitalize="none" />
         <Btn kind="ghost" title="📷 Karte scannen" onPress={() => router.push("/scan")} />
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
           <Dropdown label="Sprache" value={region} options={REGIONS} onChange={setRegion} />
@@ -76,10 +77,10 @@ export default function Suche() {
       <FlatList data={rows} key={COLS} numColumns={COLS} keyExtractor={(h) => h.id}
         columnWrapperStyle={{ gap: GAP, marginBottom: GAP, alignSelf: "center", width: inner }}
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 24 }}
-        keyboardShouldPersistTaps="handled" onEndReached={more} onEndReachedThreshold={0.6}
+        keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onEndReached={more} onEndReachedThreshold={0.6}
         initialNumToRender={12} windowSize={7}
         ListEmptyComponent={<View><Empty text={hint} />{q.trim().length >= 2 && !busy ? <Btn title="Nicht gefunden? Eigene Karte anlegen" kind="ghost" onPress={() => router.push({ pathname: "/custom-card", params: { name: q.trim() } })} /> : null}</View>}
-        ListFooterComponent={busy && rows.length > 0 ? <ActivityIndicator color={t.accent} style={{ marginVertical: 16 }} /> : (rows.length > 0 && done ? <View style={{ alignSelf: "center", width: inner }}><Btn title="Karte fehlt? Eigene Karte anlegen" kind="ghost" onPress={() => router.push({ pathname: "/custom-card", params: { name: q.trim() } })} /></View> : undefined)}
+        ListFooterComponent={busy && rows.length > 0 ? <ActivityIndicator color={t.accent} style={{ marginVertical: 16 }} /> : (rows.length > 0 && !done ? <View style={{ alignSelf: "center", width: inner }}><Btn title={`Weitere laden (${rows.length} von ${total.toLocaleString("de-DE")})`} onPress={more} /></View> : rows.length > 0 && done ? <View style={{ alignSelf: "center", width: inner }}><Btn title="Karte fehlt? Eigene Karte anlegen" kind="ghost" onPress={() => router.push({ pathname: "/custom-card", params: { name: q.trim() } })} /></View> : undefined)}
         renderItem={({ item: h }) => {
           const hue = hueFor(h.set_id);
           return (
