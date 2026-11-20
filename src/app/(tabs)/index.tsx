@@ -80,8 +80,9 @@ export default function Start() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const t = useTheme();
   const router = useRouter();
-  // Gewinn/Verlust = Sammlungswert (alle Karten) minus Investiert
-  const diff = sum ? sum.value - sum.invested : 0;
+  // Pille unter dem Sammlungswert: Wert aller Karten minus Investiert; Kachel „Gewinn/Verlust“: nur Karten mit Kaufpreis
+  const diffAll = sum ? sum.value - sum.invested : 0;
+  const diff = sum ? sum.pricedValue - sum.invested : 0;
 
   const lo = hist.length ? Math.min(...hist.map((h) => h.value)) : 0;
   const hi = hist.length ? Math.max(...hist.map((h) => h.value)) : 0;
@@ -94,7 +95,7 @@ export default function Start() {
             <Sub>Sammlungswert</Sub>
             <Txt bold style={{ fontSize: 36, marginTop: 2, letterSpacing: -0.5 }}>{eur(sum.value)}</Txt>
             <View style={{ flexDirection: "row", marginBottom: 12 }}>
-              <Pill tone={diff >= 0 ? "good" : "bad"} label={`${diff >= 0 ? "▲" : "▼"} ${eur(Math.abs(diff))} zum eingesetzten Geld`} />
+              <Pill tone={diffAll >= 0 ? "good" : "bad"} label={`${diffAll >= 0 ? "▲" : "▼"} ${eur(Math.abs(diffAll))} zum eingesetzten Geld`} />
             </View>
             {hist.length >= 2 ? (
               <View>
@@ -116,7 +117,9 @@ export default function Start() {
               <Pressable onPress={() => router.push("/investiert" as any)} style={{ flex: 1 }}>
                 <Stat label="Investiert ›" value={eur(sum.invested)} />
               </Pressable>
-              <Stat label="Gewinn/Verlust" value={eur(diff)} color={diff >= 0 ? t.good : t.bad} />
+              <Pressable onPress={() => router.push("/investiert" as any)} style={{ flex: 1 }}>
+                <Stat label="Gewinn/Verlust ›" value={eur(diff)} color={diff >= 0 ? t.good : t.bad} />
+              </Pressable>
             </View>
             <Sub style={{ marginTop: 10 }}>
               {sum.own} Einträge mit Zustandspreis, übrige mit Marktwert (Cardmarket-Trend).
