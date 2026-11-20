@@ -80,8 +80,8 @@ export default function Start() {
   useFocusEffect(useCallback(() => { load(); }, [load]));
   const t = useTheme();
   const router = useRouter();
-  // Gewinn/Verlust nur über Karten mit Kaufpreis (sonst würde der Wert der übrigen Karten als Gewinn zählen)
-  const diff = sum ? sum.pricedValue - sum.invested : 0;
+  // Gewinn/Verlust = Sammlungswert (alle Karten) minus Investiert
+  const diff = sum ? sum.value - sum.invested : 0;
 
   const lo = hist.length ? Math.min(...hist.map((h) => h.value)) : 0;
   const hi = hist.length ? Math.max(...hist.map((h) => h.value)) : 0;
