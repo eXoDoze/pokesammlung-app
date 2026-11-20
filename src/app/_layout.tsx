@@ -23,10 +23,10 @@ function Gate() {
     <Stack screenOptions={{ headerStyle: { backgroundColor: t.card }, headerTintColor: t.text, contentStyle: { backgroundColor: t.bg } }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
-      <Stack.Screen name="set/[id]" options={{ title: "Set" }} />
-      <Stack.Screen name="card/[id]" options={{ title: "Karte" }} />
-      <Stack.Screen name="item/[id]" options={{ title: "Sammlungseintrag" }} />
-      <Stack.Screen name="tag/[key]" options={{ title: "Typ" }} />
+      <Stack.Screen name="set/[setId]" options={{ title: "Set" }} />
+      <Stack.Screen name="card/[cardId]" options={{ title: "Karte" }} />
+      <Stack.Screen name="item/[itemId]" options={{ title: "Sammlungseintrag" }} />
+      <Stack.Screen name="tag/[tagKey]" options={{ title: "Typ" }} />
       <Stack.Screen name="bestand" options={{ title: "Sammlung" }} />
       <Stack.Screen name="scan" options={{ title: "Karte scannen" }} />
       <Stack.Screen name="mastersets" options={{ title: "Mastersets" }} />

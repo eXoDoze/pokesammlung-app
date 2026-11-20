@@ -5,7 +5,7 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "
 import { Btn, CardImg, Field, H, Screen, Segmented, Sub } from "../components/ui";
 import { FormValues, ItemForm } from "../components/ItemForm";
 import type { Variant } from "../lib/data";
-import { Hit, OcrLine, Parsed, parseOcr, scoreHit } from "../lib/scan";
+import { Hit, OcrLine, Parsed, parseOcr, scoreHit } from "../lib/ocrParser";
 import { cardName } from "../lib/labels";
 import { useApp } from "../lib/session";
 import { supabase } from "../lib/supabase";
