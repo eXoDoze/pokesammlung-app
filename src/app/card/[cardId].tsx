@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, View } from "react-native";
 import { CardTags } from "../../components/CardTags";
 import { ItemForm, FormValues } from "../../components/ItemForm";
-import { Btn, H, Panel, Pill, Screen, Stat, Sub, Txt } from "../../components/ui";
+import { Btn, H, Panel, Pill, Screen, Stat, Sub, Thumb, Txt } from "../../components/ui";
 import { PriceRow, Variant, jaLinkProduct, latestPrices, ITEM_SELECT, Item, valuesForItems, Value } from "../../lib/data";
 import { FINISH_LABEL, cardName, cardmarketUrl, ebaySoldUrl, eur, isFirstEd, variantLabel, setTitle } from "../../lib/labels";
 import { useApp } from "../../lib/session";
@@ -18,6 +18,9 @@ type Card = {
   card_variants: Variant[];
 };
 
+type Version = { id: string; number: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko: string | null; name_zh: string | null; rarity: string | null; image_url: string | null; set_name: string; region: string; match: string };
+const REGION_NAME: Record<string, string> = { international: "Deutsch / Englisch", japan: "Japanisch", korea: "Koreanisch", china: "Chinesisch", taiwan: "Taiwan" };
+
 export default function CardScreen() {
   const { cardId: raw } = useLocalSearchParams<{ cardId: string }>();
   const id = decodeURIComponent(String(raw));
@@ -27,6 +30,7 @@ export default function CardScreen() {
   const [prices, setPrices] = useState<Map<number, PriceRow>>(new Map());
   const [lang, setLang] = useState("de");
   const [jaProduct, setJaProduct] = useState<number | null>(null);
+  const [versions, setVersions] = useState<Version[]>([]);
   const [mine, setMine] = useState<{ item: Item; value: Value }[]>([]);
 
   useEffect(() => {
@@ -37,6 +41,7 @@ export default function CardScreen() {
       const c = data as any as Card | null;
       setCard(c);
       setJaProduct(await jaLinkProduct(id));
+      supabase.rpc("card_versions", { p_card_id: id }).then(({ data: v }) => setVersions((v ?? []) as Version[]));
       if (active) {
         const own = await supabase.from("collection_items").select(ITEM_SELECT).eq("collection_id", active.id).eq("status", "owned").eq("card_id", id);
         const items = (own.data ?? []) as any as Item[];
@@ -87,6 +92,24 @@ export default function CardScreen() {
                 <Pressable key={it.id} onPress={() => router.push(`/item/${it.id}`)} style={{ paddingVertical: 8 }}>
                   <Txt bold>{it.quantity > 1 ? `${it.quantity}× ` : ""}{FINISH_LABEL[it.finish] ?? it.finish}{it.stamp ? ` · ${it.stamp}` : ""} · {it.is_graded ? `${it.grading_company} ${it.grade}` : it.condition} · {it.language.toUpperCase()}</Txt>
                   <Sub>{value ? `${eur(value.price)} pro Karte` : "kein Preis"} · Eintrag öffnen ›</Sub>
+                </Pressable>
+              ))}
+            </Panel>
+          </>
+        )}
+
+        {versions.length > 0 && (
+          <>
+            <H>Weitere Versionen (andere Sprache / Set)</H>
+            <Panel>
+              {versions.map((v) => (
+                <Pressable key={v.id} onPress={() => router.push(`/card/${encodeURIComponent(v.id)}` as any)} style={{ flexDirection: "row", gap: 12, paddingVertical: 8, alignItems: "center" }}>
+                  <Thumb uri={v.image_url} w={44} />
+                  <View style={{ flex: 1 }}>
+                    <Txt bold numberOfLines={1}>{cardName(v as any)}</Txt>
+                    <Sub numberOfLines={1}>{v.set_name}{v.number ? ` · #${v.number}` : ""}{v.rarity && v.rarity !== "None" ? ` · ${v.rarity}` : ""}</Sub>
+                  </View>
+                  <Pill label={REGION_NAME[v.region] ?? v.region} tone={v.region === "international" ? "accent" : undefined} />
                 </Pressable>
               ))}
             </Panel>
