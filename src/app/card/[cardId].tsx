@@ -75,13 +75,17 @@ export default function CardScreen() {
       const { data, error } = await supabase.functions.invoke("live-price", {
         body: { card_id: card.id, variant_id: v.id, language: liveLang, condition: liveCond, finish: v.finish, first_ed: isFirstEd(v.subtype) },
       });
-      if (error) throw new Error(error.message);
+      if (error) {
+        let detail = "";
+        try { const r = (error as any).context; detail = r?.status ? `HTTP ${r.status}: ${(await r.text()).slice(0, 200)}` : ""; } catch {}
+        throw new Error(detail || error.message);
+      }
       if ((data as any)?.error) throw new Error((data as any).error);
-      const d = data as { all: number | null; de: number | null; offers: number; cached?: boolean };
+      const d = data as { all: number | null; de: number | null; offers: number; cached?: boolean; debug?: any };
       setCond(await latestCondPrices([id]));
       const label = CONDITIONS.find((c) => c.code === liveCond)?.label ?? liveCond;
       setLiveMsg((m) => ({ ...m, [v.id]: d.all == null
-        ? `Zustand ${label}: aktuell kein Angebot auf Cardmarket.`
+        ? `Zustand ${label}: aktuell kein Angebot auf Cardmarket gefunden.${d.debug ? ` [Diagnose: ${JSON.stringify(d.debug).slice(0, 700)}]` : ""}`
         : `${label}: günstigstes Angebot ${eur(d.all)} (alle Verkäufer, ${d.offers} Angebote)${d.de != null ? ` · ${eur(d.de)} (nur Deutschland)` : ""}${d.cached ? " · vor wenigen Minuten geladen" : " · gerade geladen"}` }));
     } catch (e: any) {
       setLiveMsg((m) => ({ ...m, [v.id]: `Preis konnte nicht geladen werden: ${e.message ?? e}` }));
