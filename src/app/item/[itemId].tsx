@@ -2,6 +2,7 @@ import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, View } from "react-native";
+import { BinderZuweisen } from "../../components/BinderZuweisen";
 import { CardTags } from "../../components/CardTags";
 import { FormValues, ItemForm } from "../../components/ItemForm";
 import { Btn, Field, H, Panel, Pill, Screen, Segmented, Stat, Sub, Txt } from "../../components/ui";
@@ -172,6 +173,7 @@ export default function ItemScreen() {
         ) : isWish ? null : (
           <Btn title="Verkauft / getauscht …" onPress={() => setClosing(true)} />
         )}
+        {!isWish && !isClosed && <BinderZuweisen itemId={item.id} />}
         <H>{isWish ? "Gekauft? Zustand und Kaufpreis eintragen" : "Eintrag bearbeiten"}</H>
         {isWish && <Sub>Diese Karte steht auf deiner Wunschliste. Mit „In Sammlung übernehmen“ wandert sie samt Zustand, Kaufpreis und Datum in deine Sammlung.</Sub>}
         <ItemForm variants={variants} lockVariant initial={{ ...item, variant_id: v?.id ?? null }} onSave={save} saveLabel={isWish ? "In Sammlung übernehmen" : "Speichern"} />

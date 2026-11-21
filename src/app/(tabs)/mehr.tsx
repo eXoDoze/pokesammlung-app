@@ -1,6 +1,7 @@
 import * as Updates from "expo-updates";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Alert, Platform, ScrollView } from "react-native";
+import { getPageFlip, setPageFlip } from "../../lib/binder";
 import { Btn, Chip, Field, H, Row, Screen, Sub, Txt } from "../../components/ui";
 import { useApp } from "../../lib/session";
 import { supabase } from "../../lib/supabase";
@@ -22,6 +23,8 @@ export default function Mehr() {
     finally { setUpdBusy(false); }
   };
 
+  const [flip, setFlip] = useState(true);
+  useEffect(() => { getPageFlip().then(setFlip); }, []);
   const [newName, setNewName] = useState("");
   const rename = async () => {
     if (!active || !newName.trim()) return;
@@ -56,6 +59,9 @@ export default function Mehr() {
         <Sub>
           Der Wert einer Karte ist der günstigste Preis im gewählten Zustand (alle Verkäufer, Cardmarket); zusätzlich siehst du den günstigsten Preis von Verkäufern aus Deutschland. Fehlt der Zustandspreis, zeigt die App den Ab-Preis, nur bei Karten aus gemischten Sprachprodukten bleibt der Wert leer. Ein selbst gesetzter Wert hat immer Vorrang. Zustandspreise werden wöchentlich (ab 25 €) bzw. monatlich aktualisiert.
         </Sub>
+        <H>Binder</H>
+        <Sub>Beim Seitenwechsel im Binder (3×3 / 3×4) wie ein Buch umblättern.</Sub>
+        <Row><Chip label="Umblätter-Animation: an" on={flip} onPress={() => { setFlip(true); setPageFlip(true); }} /><Chip label="aus" on={!flip} onPress={() => { setFlip(false); setPageFlip(false); }} /></Row>
         <H>App-Update</H>
         <Sub>{updInfo}</Sub>
         <Btn title="Nach Update suchen" kind="ghost" onPress={checkUpdate} busy={updBusy} />

@@ -6,6 +6,7 @@ import { Screen } from "../../components/ui";
 import { fetchItems, valuesForItems } from "../../lib/data";
 import { eur } from "../../lib/labels";
 import { useApp } from "../../lib/session";
+import { supabase } from "../../lib/supabase";
 import { useTheme } from "../../lib/theme";
 
 type Tile = { key: string; icon: keyof typeof Ionicons.glyphMap; title: string; sub: string; href?: string; soon?: boolean };
@@ -14,7 +15,7 @@ export default function SammlungHub() {
   const { active } = useApp();
   const router = useRouter();
   const t = useTheme();
-  const [stat, setStat] = useState({ cards: 0, value: 0, closed: 0, wish: 0 });
+  const [stat, setStat] = useState({ cards: 0, value: 0, closed: 0, wish: 0, binders: 0 });
 
   useFocusEffect(useCallback(() => {
     if (!active) return;
@@ -25,7 +26,8 @@ export default function SammlungHub() {
       for (const i of owned) { cards += i.quantity; const v = vals.get(i.id); if (v) value += v.price * i.quantity; }
       const closed = await fetchItems(active.id, ["sold", "traded"]);
       const wish = await fetchItems(active.id, ["wishlist"]);
-      setStat({ cards, value, closed: closed.length, wish: wish.length });
+      const bc = await supabase.from("binders").select("id", { count: "exact", head: true }).eq("collection_id", active.id);
+      setStat({ cards, value, closed: closed.length, wish: wish.length, binders: bc.count ?? 0 });
     })();
   }, [active]));
 
@@ -34,7 +36,7 @@ export default function SammlungHub() {
     { key: "wish", icon: "heart", title: "Wunschliste", sub: `${stat.wish} Karten`, href: "/wunschliste" },
     { key: "master", icon: "ribbon", title: "Mastersets", sub: "Fortschritt pro Set", href: "/mastersets" },
     { key: "scan", icon: "scan", title: "Karte scannen", sub: "Mit der Kamera hinzufügen", href: "/scan" },
-    { key: "binder", icon: "book", title: "Binder", sub: "Kommt als Nächstes", soon: true },
+    { key: "binder", icon: "book", title: "Binder", sub: `${stat.binders} Binder`, href: "/binder-liste" },
     { key: "closed", icon: "swap-horizontal", title: "Verkauft & getauscht", sub: `${stat.closed} Einträge`, href: "/bestand?view=closed" },
   ];
 

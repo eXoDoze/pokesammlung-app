@@ -56,6 +56,9 @@ function Gate() {
       <Stack.Screen name="wunschliste" options={{ title: "Wunschliste" }} />
       <Stack.Screen name="karte-hinzufuegen" options={{ title: "Zur Sammlung hinzufügen" }} />
       <Stack.Screen name="card-versions" options={{ title: "Weitere Versionen" }} />
+      <Stack.Screen name="binder-liste" options={{ title: "Binder" }} />
+      <Stack.Screen name="binder-inhalt" options={{ title: "Binder" }} />
+      <Stack.Screen name="binder-karte-waehlen" options={{ title: "Karte auswählen" }} />
       <Stack.Screen name="custom-card" options={{ title: "Eigene Karte anlegen" }} />
     </Stack>
   );
