@@ -12,7 +12,7 @@ export type Item = {
   stamp: string | null; condition: string; is_graded: boolean; grading_company: string | null;
   grade: number | null; quantity: number; purchase_price: number | null;
   purchased_at: string | null; notes: string | null; manual_value: number | null; prefer_manual?: boolean;
-  status?: string; binder_id?: string | null; closed_at?: string | null; sold_price?: number | null; closed_note?: string | null;
+  status?: string; closed_at?: string | null; sold_price?: number | null; closed_note?: string | null;
   cards: {
     id: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null;
     number: string; image_url: string | null; set_id: string; cardmarket_url?: string | null;
@@ -29,6 +29,7 @@ export type CondPrice = {
   card_id: string; language: string; finish: string; is_first_edition: boolean; stamp: string | null;
   condition: string; is_graded: boolean; grading_company: string | null; grade: number | null;
   price: number; seller_scope: string; fetched_at: string;
+  price_condition?: string | null; // Zustand, für den der Preis wirklich gilt (weicht ab, wenn der gewählte Zustand nicht angeboten wird)
 };
 
 export const ITEM_SELECT =

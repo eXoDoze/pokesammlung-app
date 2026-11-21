@@ -57,6 +57,8 @@ export default function ItemScreen() {
   const low = row && fits ? (rev ? row.low_foil : row.low) : null;
   const urlPlain = cardmarketUrl({ productId: v?.cardmarket_product_id ?? jaProduct, directUrl: item.cards.cardmarket_url });
   const deCond = findCond(item, cond, "DE");
+  const allCond = findCond(item, cond, "alle");
+  const otherCond = val?.kind === "zustand" && allCond?.price_condition && allCond.price_condition !== item.condition ? allCond.price_condition : null;
   const kindLabel = val
     ? val.kind === "zustand" ? `Günstigstes Angebot · ${conditionLabel(item.condition)} · alle Verkäufer`
       : val.kind === "ab" ? "Günstigstes Angebot · alle Zustände · alle Verkäufer"
@@ -133,6 +135,7 @@ export default function ItemScreen() {
             <>
               <Txt bold style={{ fontSize: 24 }}>{eur(val.price)}{item.quantity > 1 ? `  ·  ${eur(val.price * item.quantity)} gesamt` : ""}</Txt>
               <Sub>{kindLabel}</Sub>
+              {otherCond && <Sub>{`Preis für ${conditionLabel(otherCond)}, weil ${conditionLabel(item.condition)} aktuell nicht angeboten wird.`}</Sub>}
             </>
           ) : <Sub>{row && !fits ? "Kein Preis angezeigt: Cardmarket führt diese Karte nur als gemeinsames Produkt für mehrere Sprachen, ein Preis wäre ungenau. Schau über den Link ohne Filter nach und trag unten einen eigenen Wert ein." : "Kein Preis vorhanden. Du kannst unten einen eigenen Wert eintragen."}</Sub>}
           {!item.is_graded && (

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View } from "react-native";
 import type { Variant } from "../lib/data";
-import { CONDITIONS, FINISH_LABEL, GRADERS, LANGUAGES, deToIso, isFirstEd, isShadowless, isoToDe, langsForRegion, variantLabel } from "../lib/labels";
+import { CONDITIONS, FINISH_LABEL, GRADERS, LANGUAGES, deToIso, isFirstEd, isShadowless, isoToDe, langsForRegion, variantLabel, variantLabels } from "../lib/labels";
 import { Btn, Chip, Field, Row, Sub } from "./ui";
 
 export type FormValues = {
@@ -23,7 +23,10 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
   const startVariant = variants.find((v) => v.id === initial?.variant_id) ?? variants[0];
   const [variantId, setVariantId] = useState<string | null>(startVariant?.id ?? null);
   const [finish, setFinish] = useState<string>(initial?.finish ?? startVariant?.finish ?? "non_holo");
-  const [stamp, setStamp] = useState<string>(initial?.stamp ?? startVariant?.stamps?.[0] ?? "");
+  // "set-logo" & Co. sind nur eine Bildmarkierung der Datenquelle, kein echter Stempel
+  const realStamp = (x?: string | null) => (x && !/^set[\s_-]?(logo|symbol)$/i.test(x.trim()) ? x : "");
+  const [stamp, setStamp] = useState<string>(realStamp(initial?.stamp) || realStamp(startVariant?.stamps?.[0]));
+  const labels = variantLabels(variants);
   const startLang = initial?.language ?? defaultLanguage ?? allowed[0];
   const [lang, setLang] = useState(region && !allowed.includes(startLang) && !initial?.language ? allowed[0] : startLang);
   const [cond, setCond] = useState(initial?.condition ?? "NM");
@@ -69,23 +72,28 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
 
   return (
     <View>
-      {variants.some((x) => x.subtype || (x.stamps && x.stamps.length > 0)) && (
+      {/* Eine einzige Auswahl "Variante" (Namen wie bei Cardmarket); bei nur einer Variante entfällt sie */}
+      {variants.length > 1 && (
         <>
           <Sub>Variante</Sub>
           <Row>
             {variants.map((x) => (
-              <Chip key={x.id} label={variantLabel(x)} on={x.id === variantId}
-                onPress={lockVariant ? undefined : () => { setVariantId(x.id); setFinish(x.finish); setStamp(x.stamps?.[0] ?? ""); }} />
+              <Chip key={x.id} label={labels.get(x.id) ?? variantLabel(x)} on={x.id === variantId}
+                onPress={lockVariant ? undefined : () => { setVariantId(x.id); setFinish(x.finish); setStamp(realStamp(x.stamps?.[0])); }} />
             ))}
           </Row>
         </>
       )}
-      <Sub>Ausführung</Sub>
-      <Row>
-        {(["non_holo", "holo", "reverse_holo"] as const).map((f) => (
-          <Chip key={f} label={FINISH_LABEL[f] ?? f} on={finish === f} onPress={() => setFinish(f)} />
-        ))}
-      </Row>
+      {variants.length === 0 && (
+        <>
+          <Sub>Ausführung</Sub>
+          <Row>
+            {(["non_holo", "holo", "reverse_holo"] as const).map((f) => (
+              <Chip key={f} label={FINISH_LABEL[f] ?? f} on={finish === f} onPress={() => setFinish(f)} />
+            ))}
+          </Row>
+        </>
+      )}
       <Field label="Stempel (optional, z. B. Pokémon League, Prerelease)" value={stamp} onChangeText={setStamp} placeholder="leer = ohne Stempel" />
       <Sub>Sprache der Karte</Sub>
       <Row>
