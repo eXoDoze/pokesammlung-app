@@ -3,7 +3,7 @@ import { ITEM_SELECT, Item } from "./data";
 import { supabase } from "./supabase";
 
 export type Layout = "list" | "3x3" | "3x4";
-export type Binder = { id: string; owner_id: string; collection_id: string | null; name: string; layout: Layout; pages: number; created_at: string };
+export type Binder = { id: string; owner_id: string; collection_id: string | null; name: string; layout: Layout; pages: number; sort_order: number; created_at: string };
 // page/slot = null: Karte liegt im Binder, hat aber noch keinen festen Platz
 export type Slot = { id: string; binder_id: string; page: number | null; slot: number | null; item_id: string; item: Item | null };
 
@@ -14,7 +14,7 @@ export const slotsPerPage = (l: Layout) => (l === "list" ? 0 : layoutCols(l) * l
 export const layoutLabel = (l: Layout) => (l === "list" ? "Liste" : l === "3x4" ? "4×3" : "3×3");
 
 export async function fetchBinders(collectionId: string | null): Promise<Binder[]> {
-  let q = supabase.from("binders").select("*").order("created_at");
+  let q = supabase.from("binders").select("*").order("sort_order").order("created_at");
   if (collectionId) q = q.eq("collection_id", collectionId);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
@@ -115,4 +115,13 @@ export async function getPageFlip(): Promise<boolean> {
 }
 export async function setPageFlip(on: boolean) {
   try { await AsyncStorage.setItem(FLIP_KEY, on ? "on" : "off"); } catch { /* egal */ }
+}
+
+// Reihenfolge der Binder speichern (Liste von Binder-IDs in gewünschter Reihenfolge)
+export async function saveBinderOrder(ids: string[]): Promise<string | null> {
+  for (let i = 0; i < ids.length; i++) {
+    const { error } = await supabase.from("binders").update({ sort_order: i + 1 }).eq("id", ids[i]);
+    if (error) return error.message;
+  }
+  return null;
 }
