@@ -5,8 +5,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Alert, Animated, Easing, FlatList, Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { Btn, CardImg, Chip, Empty, Field, Row, Screen, Segmented, Sub, Thumb } from "../components/ui";
 import { Binder, Slot, addItemUnplaced, fetchSlots, getPageFlip, layoutCols, layoutLabel, layoutRows, moveSlot, placeItem, removeSlot, slotsPerPage, unplaceSlot } from "../lib/binder";
-import { ITEM_SELECT, Item } from "../lib/data";
-import { FINISH_LABEL, cardName, conditionLabel, setTitle } from "../lib/labels";
+import { ITEM_SELECT, Item, Value, valuesForItems } from "../lib/data";
+import { FINISH_LABEL, cardName, conditionLabel, eur, setTitle } from "../lib/labels";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
 
@@ -29,12 +29,15 @@ export default function BinderInhalt() {
   const [flip, setFlip] = useState(true);
   const [placing, setPlacing] = useState<Item | null>(null);   // Karte von der Kartenseite, für die ein Platz gesucht wird
   const [unplacedList, setUnplacedList] = useState(false);
+  const [vals, setVals] = useState<Map<string, Value>>(new Map());
 
   const load = useCallback(async () => {
     const { data } = await supabase.from("binders").select("*").eq("id", binderId).single();
     if (!data) return;
     setBinder(data as Binder);
-    setSlots(await fetchSlots(binderId));
+    const sl = await fetchSlots(binderId);
+    setSlots(sl);
+    try { setVals(await valuesForItems(sl.map((x) => x.item).filter(Boolean) as Item[])); } catch { /* Wert bleibt leer */ }
     setFlip(await getPageFlip());
     try { const v = await AsyncStorage.getItem(`binderview:${binderId}`); if (v === "liste" || v === "seiten") setView(v); } catch { /* egal */ }
   }, [binderId]);
@@ -63,6 +66,14 @@ export default function BinderInhalt() {
   const hitPages = useMemo(() => needle && per ? [...new Set(slots.filter((s) => s.page != null && matches(s)).map((s) => s.page as number))].sort((a, b) => a - b) : [], [slots, needle, per, matches]);
   const listRows = useMemo(() => slots.filter(matches).sort((a, b) => (a.page ?? 1e9) - (b.page ?? 1e9) || (a.slot ?? 0) - (b.slot ?? 0)), [slots, matches]);
   const unplaced = useMemo(() => slots.filter((s) => s.page == null), [slots]);
+  // Wert: jede Karte zählt einmal (ein Platz = eine Karte); Karten ohne Preis werden mitgezählt, aber nicht bewertet
+  const valueOfSlots = (list: Slot[]) => {
+    let sum = 0, noPrice = 0;
+    for (const s of list) { const v = s.item ? vals.get(s.item.id) : null; if (v) sum += v.price; else noPrice++; }
+    return { sum, noPrice };
+  };
+  const totalVal = useMemo(() => valueOfSlots(slots), [slots, vals]);
+  const pageVal = useMemo(() => valueOfSlots(slots.filter((s) => s.page === page)), [slots, vals, page]);
 
   // Umblättern mit Animation (Einstellung unter "Mehr")
   const rot = useRef(new Animated.Value(0)).current;
@@ -168,6 +179,10 @@ export default function BinderInhalt() {
             <Segmented value={view} onChange={(v) => setViewSaved(v as "seiten" | "liste")} options={[{ value: "seiten", label: `Seiten (${layoutLabel(layout)})` }, { value: "liste", label: "Liste" }]} />
           </View>
         )}
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 2 }}>
+          <Sub>{slots.length} Karten im Binder{totalVal.noPrice ? ` · ${totalVal.noPrice} ohne Preis` : ""}</Sub>
+          <Text style={{ color: t.text, fontWeight: "800", fontSize: 13 }}>Binder: {eur(totalVal.sum)}</Text>
+        </View>
         <Field label="" value={q} onChangeText={setQ} placeholder="In diesem Binder suchen: Name, Nummer oder Set" />
         {placing && (
           <View style={{ backgroundColor: t.accent + "33", borderRadius: 12, padding: 10, marginBottom: 8 }}>
@@ -197,7 +212,7 @@ export default function BinderInhalt() {
         <Pressable onPress={() => goPage(page - 1)} disabled={page === 0} style={{ padding: 8, opacity: page === 0 ? 0.3 : 1 }}><Ionicons name="chevron-back" size={26} color={t.text} /></Pressable>
         <Pressable onPress={() => { setJumpTxt(String(page + 1)); setJump(true); }}>
           <Text style={{ color: t.text, fontSize: 16, fontWeight: "800" }}>Seite {page + 1} / {pages}</Text>
-          <Text style={{ color: t.sub, fontSize: 11, textAlign: "center" }}>{slots.filter((s) => s.page === page).length} von {per} Plätzen belegt</Text>
+          <Text style={{ color: t.sub, fontSize: 11, textAlign: "center" }}>{slots.filter((s) => s.page === page).length} von {per} Plätzen belegt · {eur(pageVal.sum)}</Text>
         </Pressable>
         <Pressable onPress={() => goPage(page + 1)} disabled={page >= pages - 1} style={{ padding: 8, opacity: page >= pages - 1 ? 0.3 : 1 }}><Ionicons name="chevron-forward" size={26} color={t.text} /></Pressable>
       </View>
