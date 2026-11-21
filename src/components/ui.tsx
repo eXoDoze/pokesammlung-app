@@ -62,14 +62,24 @@ export function Chip({ label, on, onPress }: { label: string; on?: boolean; onPr
 export function Row({ children }: { children: React.ReactNode }) {
   return <View style={{ flexDirection: "row", flexWrap: "wrap" }}>{children}</View>;
 }
-export function Field(props: TextInputProps & { label: string }) {
+export function Field(props: TextInputProps & { label: string; clearable?: boolean }) {
   const t = useTheme();
-  const { label, ...rest } = props;
+  const { label, clearable, ...rest } = props;
+  // Suchfelder (ohne Beschriftung) bekommen ein "X" zum Löschen der ganzen Eingabe
+  const showClear = (clearable ?? label === "") && !!rest.value && !!rest.onChangeText && rest.editable !== false;
   return (
     <View style={{ marginBottom: 10 }}>
       <Sub>{label}</Sub>
-      <TextInput placeholderTextColor={t.sub} {...rest}
-        style={{ color: t.text, backgroundColor: t.card, borderColor: t.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginTop: 4, fontSize: 15 }} />
+      <View style={{ marginTop: 4, justifyContent: "center" }}>
+        <TextInput placeholderTextColor={t.sub} {...rest}
+          style={{ color: t.text, backgroundColor: t.card, borderColor: t.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingRight: showClear ? 42 : 12, paddingVertical: 10, fontSize: 15 }} />
+        {showClear && (
+          <Pressable onPress={() => rest.onChangeText?.("")} hitSlop={8} accessibilityLabel="Eingabe löschen"
+            style={{ position: "absolute", right: 6, width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: t.chip }}>
+            <Text style={{ color: t.text, fontSize: 15, fontWeight: "800", lineHeight: 18 }}>✕</Text>
+          </Pressable>
+        )}
+      </View>
     </View>
   );
 }

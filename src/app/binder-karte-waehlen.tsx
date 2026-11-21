@@ -2,7 +2,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, FlatList, Pressable, Text, View } from "react-native";
 import { Chip, Empty, Field, Pill, Row, Screen, Segmented, Sub, Thumb } from "../components/ui";
-import { Slot, fetchSlots, moveSlot, placeItem } from "../lib/binder";
+import { Slot, binderCounts, fetchSlots, moveSlot, placeItem } from "../lib/binder";
 import { Item, fetchItems } from "../lib/data";
 import { FINISH_LABEL, cardName, conditionLabel, setTitle } from "../lib/labels";
 import { useApp } from "../lib/session";
@@ -25,6 +25,7 @@ export default function BinderKarteWaehlen() {
   const [colId, setColId] = useState<string>("");   // "" = alle Sammlungen
   const [items, setItems] = useState<Item[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [total, setTotal] = useState<Map<string, number>>(new Map());
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(true);
   const [ready, setReady] = useState(false);
@@ -42,7 +43,8 @@ export default function BinderKarteWaehlen() {
         setSlots(sl);
         if (!tabSet) { setTabSet(true); if (sl.some((x) => x.page == null)) setTab("ohne"); }
         const ids = colId ? [colId] : collections.map((c) => c.id);
-        setItems((await Promise.all(ids.map((id) => fetchItems(id, ["owned"])))).flat());
+        const its = (await Promise.all(ids.map((id) => fetchItems(id, ["owned"])))).flat();
+        setItems(its); setTotal(await binderCounts(its.map((i) => i.id)));
       } catch (e: any) { Alert.alert("Fehler", e.message); } finally { setBusy(false); }
     })();
   }, [ready, colId, collections, binderId]);
@@ -56,11 +58,11 @@ export default function BinderKarteWaehlen() {
     return !!it && (!s || [it.cards.name_en, it.cards.name_de, it.cards.name_ja, it.cards.number, it.cards.sets?.name_de, it.cards.sets?.name_en].some((x) => x?.toLowerCase().includes(s)));
   };
   const rows: { key: string; item: Item; slotRow?: Slot }[] = useMemo(() => {
-    if (tab === "sammlung") return items.filter(match).map((i) => ({ key: i.id, item: i }));
+    if (tab === "sammlung") return items.filter((i) => match(i) && (total.get(i.id) ?? 0) < i.quantity).map((i) => ({ key: i.id, item: i }));
     return slots.filter((s) => (tab === "ohne" ? s.page == null : s.page != null) && match(s.item))
       .sort((a, b) => (a.page ?? 0) - (b.page ?? 0) || (a.slot ?? 0) - (b.slot ?? 0))
       .map((s) => ({ key: s.id, item: s.item as Item, slotRow: s }));
-  }, [tab, items, slots, q]);
+  }, [tab, items, slots, q, total]);
 
   const pick = async (r: { item: Item; slotRow?: Slot }) => {
     const p = Number(page), sl = Number(slot);
@@ -86,9 +88,9 @@ export default function BinderKarteWaehlen() {
       </View>
       <FlatList data={rows} keyExtractor={(r) => r.key} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"
         contentContainerStyle={{ padding: 16, paddingTop: 4, maxWidth: 760, width: "100%", alignSelf: "center" }}
-        ListEmptyComponent={<Empty text={busy ? "Lade …" : tab === "ohne" ? "Keine Karten ohne Platz. Füge unter „Sammlung“ welche hinzu." : "Keine passende Karte."} />}
+        ListEmptyComponent={<Empty text={busy ? "Lade …" : tab === "ohne" ? "Keine Karten ohne Platz. Füge unter „Sammlung“ welche hinzu." : tab === "sammlung" ? "Keine passende Karte (Karten, die schon so oft in Bindern liegen wie du sie besitzt, werden hier ausgeblendet)." : "Keine passende Karte."} />}
         renderItem={({ item: r }) => {
-          const i = r.item, n = placedCount.get(i.id) ?? 0, sr = r.slotRow;
+          const i = r.item, n = total.get(i.id) ?? placedCount.get(i.id) ?? 0, sr = r.slotRow;
           return (
             <Pressable onPress={() => pick(r)} style={{ marginBottom: 10 }}>
               <View style={{ flexDirection: "row", gap: 12, backgroundColor: t.card, borderRadius: 18, padding: 12, borderColor: t.line, borderWidth: 1 }}>
@@ -101,7 +103,7 @@ export default function BinderKarteWaehlen() {
                     <Pill label={i.is_graded ? `${i.grading_company} ${i.grade}` : conditionLabel(i.condition)} tone="accent" />
                     <Pill label={i.language.toUpperCase()} />
                     {sr && sr.page != null ? <Pill label={`jetzt S. ${sr.page + 1} · P. ${(sr.slot ?? 0) + 1}`} tone="good" /> : null}
-                    {!sr && n > 0 ? <Pill label={`schon ${n}× im Binder`} tone={n >= i.quantity ? "bad" : "good"} /> : null}
+                    {!sr && n > 0 ? <Pill label={`schon ${n}× in Bindern (von ${i.quantity}×)`} tone="good" /> : null}
                   </View>
                 </View>
               </View>

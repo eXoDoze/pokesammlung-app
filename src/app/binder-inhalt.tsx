@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Animated, Easing, FlatList, Modal, PanResponder, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
+import { Alert, Animated, Easing, FlatList, Modal, Pressable, ScrollView, Text, View, useWindowDimensions } from "react-native";
 import { Btn, CardImg, Chip, Empty, Field, Row, Screen, Segmented, Sub, Thumb } from "../components/ui";
 import { Binder, Slot, addItemUnplaced, fetchSlots, getPageFlip, layoutCols, layoutLabel, layoutRows, moveSlot, placeItem, removeSlot, slotsPerPage, unplaceSlot } from "../lib/binder";
 import { ITEM_SELECT, Item } from "../lib/data";
@@ -79,12 +79,6 @@ export default function BinderInhalt() {
       Animated.timing(rot, { toValue: 0, duration: 230, easing: Easing.out(Easing.quad), useNativeDriver: true }).start(() => { busyAnim.current = false; });
     });
   }, [page, pages, flip, rot]);
-  const stateRef = useRef({ page: 0, goPage });
-  stateRef.current = { page, goPage };
-  const pan = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 24 && Math.abs(g.dx) > Math.abs(g.dy) * 1.6,
-    onPanResponderRelease: (_e, g) => { if (g.dx < -50) stateRef.current.goPage(stateRef.current.page + 1); else if (g.dx > 50) stateRef.current.goPage(stateRef.current.page - 1); },
-  })).current;
   const shift = pivot === 1 ? -W / 2 : W / 2;
 
   const tapSlot = async (p: number, i: number) => {
@@ -198,18 +192,20 @@ export default function BinderInhalt() {
         )}
         {needle ? <Sub style={{ marginBottom: 6 }}>{listRows.length} Treffer{showGrid && hitPages.length ? " auf Seite:" : ""}</Sub> : null}
         {showGrid && needle && hitPages.length > 0 && <Row>{hitPages.slice(0, 30).map((p) => <Chip key={p} label={String(p + 1)} on={p === page} onPress={() => goPage(p)} />)}</Row>}
+      {showGrid && (
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 6, marginBottom: 6 }}>
+        <Pressable onPress={() => goPage(page - 1)} disabled={page === 0} style={{ padding: 8, opacity: page === 0 ? 0.3 : 1 }}><Ionicons name="chevron-back" size={26} color={t.text} /></Pressable>
+        <Pressable onPress={() => { setJumpTxt(String(page + 1)); setJump(true); }}>
+          <Text style={{ color: t.text, fontSize: 16, fontWeight: "800" }}>Seite {page + 1} / {pages}</Text>
+          <Text style={{ color: t.sub, fontSize: 11, textAlign: "center" }}>{slots.filter((s) => s.page === page).length} von {per} Plätzen belegt</Text>
+        </Pressable>
+        <Pressable onPress={() => goPage(page + 1)} disabled={page >= pages - 1} style={{ padding: 8, opacity: page >= pages - 1 ? 0.3 : 1 }}><Ionicons name="chevron-forward" size={26} color={t.text} /></Pressable>
+      </View>
+      )}
       </View>
 
       {showGrid ? (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 6, maxWidth: 760, width: "100%", alignSelf: "center" }} keyboardShouldPersistTaps="handled" {...pan.panHandlers}>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <Pressable onPress={() => goPage(page - 1)} disabled={page === 0} style={{ padding: 8, opacity: page === 0 ? 0.3 : 1 }}><Ionicons name="chevron-back" size={26} color={t.text} /></Pressable>
-            <Pressable onPress={() => { setJumpTxt(String(page + 1)); setJump(true); }}>
-              <Text style={{ color: t.text, fontSize: 16, fontWeight: "800" }}>Seite {page + 1} / {pages}</Text>
-              <Text style={{ color: t.sub, fontSize: 11, textAlign: "center" }}>{slots.filter((s) => s.page === page).length} von {per} Plätzen belegt</Text>
-            </Pressable>
-            <Pressable onPress={() => goPage(page + 1)} disabled={page >= pages - 1} style={{ padding: 8, opacity: page >= pages - 1 ? 0.3 : 1 }}><Ionicons name="chevron-forward" size={26} color={t.text} /></Pressable>
-          </View>
+        <ScrollView contentContainerStyle={{ padding: 16, paddingTop: 6, maxWidth: 760, width: "100%", alignSelf: "center" }} keyboardShouldPersistTaps="handled">
           <Animated.View style={{
             opacity: rot.interpolate({ inputRange: [-1, 0, 1], outputRange: [0.55, 1, 0.55] }),
             transform: [{ perspective: 1400 }, { translateX: shift }, { rotateY: rot.interpolate({ inputRange: [-1, 1], outputRange: ["-90deg", "90deg"] }) }, { translateX: -shift }],
@@ -222,7 +218,7 @@ export default function BinderInhalt() {
               </View>
             </View>
           </Animated.View>
-          <Sub style={{ textAlign: "center", marginTop: 10 }}>Zum Umblättern wischen oder die Pfeile nutzen. Leeren Platz antippen = Karte hinzufügen.</Sub>
+          <Sub style={{ textAlign: "center", marginTop: 10 }}>Zum Umblättern die Pfeile nutzen. Leeren Platz antippen = Karte hinzufügen.</Sub>
         </ScrollView>
       ) : (
         <FlatList data={listRows} keyExtractor={(s) => s.id} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag"

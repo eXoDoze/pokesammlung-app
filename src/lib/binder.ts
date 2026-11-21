@@ -42,13 +42,35 @@ export async function slotCounts(binderIds: string[]): Promise<Map<string, numbe
   return m;
 }
 
+// Eine Karte darf insgesamt nur so oft in Bindern liegen, wie du sie besitzt (Menge im Sammlungseintrag)
+async function capacityError(itemId: string): Promise<string | null> {
+  const [it, cnt] = await Promise.all([
+    supabase.from("collection_items").select("quantity").eq("id", itemId).single(),
+    supabase.from("binder_slots").select("id", { count: "exact", head: true }).eq("item_id", itemId),
+  ]);
+  const q = Number((it.data as any)?.quantity ?? 1), n = cnt.count ?? 0;
+  return n >= q ? `Diese Karte liegt schon ${n}× in Bindern – so oft, wie du sie besitzt (${q}×).` : null;
+}
+
+// Wie oft jeder Sammlungseintrag insgesamt schon in Bindern liegt
+export async function binderCounts(itemIds: string[]): Promise<Map<string, number>> {
+  const m = new Map<string, number>();
+  for (let i = 0; i < itemIds.length; i += 100) {
+    const { data } = await supabase.from("binder_slots").select("item_id").in("item_id", itemIds.slice(i, i + 100)).limit(5000);
+    for (const r of (data ?? []) as { item_id: string }[]) m.set(r.item_id, (m.get(r.item_id) ?? 0) + 1);
+  }
+  return m;
+}
+
 export async function placeItem(binderId: string, page: number, slot: number, itemId: string): Promise<string | null> {
+  const cap = await capacityError(itemId); if (cap) return cap;
   const { error } = await supabase.from("binder_slots").insert({ binder_id: binderId, page, slot, item_id: itemId });
   return error ? (error.code === "23505" ? "Dieser Platz ist schon belegt." : error.message) : null;
 }
 
 // Karte ohne festen Platz in den Binder legen
 export async function addItemUnplaced(binderId: string, itemId: string): Promise<string | null> {
+  const cap = await capacityError(itemId); if (cap) return cap;
   const { error } = await supabase.from("binder_slots").insert({ binder_id: binderId, page: null, slot: null, item_id: itemId });
   return error?.message ?? null;
 }
