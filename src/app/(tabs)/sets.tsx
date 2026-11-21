@@ -16,7 +16,6 @@ const REGIONS = [
   { value: "japan", label: "🇯🇵 Japanisch" },
   { value: "korea", label: "🇰🇷 Koreanisch" },
   { value: "china", label: "🇨🇳 Chinesisch (vereinfacht)" },
-  { value: "taiwan", label: "🇹🇼 Chinesisch (traditionell)" },
 ];
 const COLS = 2;
 const GAP = 12;
@@ -77,7 +76,7 @@ export default function Sets() {
     })();
   }, [active]));
 
-  const byRegion = useMemo(() => sets.filter((x) => region === "all" || x.region === region), [sets, region]);
+  const byRegion = useMemo(() => sets.filter((x) => x.region !== "taiwan" && (region === "all" || x.region === region)), [sets, region]);
   const seriesOptions = useMemo(() => {
     const c = new Map<string, number>();
     for (const x of byRegion) { const k = x.series ?? "Sonstige"; c.set(k, (c.get(k) ?? 0) + 1); }

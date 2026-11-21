@@ -17,8 +17,19 @@ export const LANGUAGES = [
   { code: "ja", label: "Japanisch", cmId: 7 }, { code: "fr", label: "Französisch", cmId: 2 },
   { code: "it", label: "Italienisch", cmId: 5 }, { code: "es", label: "Spanisch", cmId: 4 },
   { code: "ko", label: "Koreanisch", cmId: 10 }, { code: "zh-cn", label: "Chinesisch (vereinfacht)", cmId: 6 },
-  { code: "zh-tw", label: "Chinesisch (traditionell)", cmId: 11 },
+  { code: "zh-tw", label: "Chinesisch (traditionell)", cmId: 11 }, { code: "pt", label: "Portugiesisch", cmId: 8 },
 ];
+// Welche Sprachen es zu einer Karte gibt, hängt vom Set ab (wie bei Cardmarket: eigenes Produkt je Version):
+//   international = Europa (de, en, fr, es, it, pt) | japan = Japanisch + Koreanisch | korea = Koreanisch | china = Chinesisch (vereinfacht)
+// Traditionelles Chinesisch (Taiwan), Indonesisch und Thailändisch sammeln wir nicht.
+export const REGION_LANGS: Record<string, string[]> = {
+  international: ["de", "en", "fr", "es", "it", "pt"], japan: ["ja", "ko"], korea: ["ko"], china: ["zh-cn"], taiwan: ["zh-tw"],
+};
+export const langsForRegion = (region?: string | null) => REGION_LANGS[region ?? "international"] ?? REGION_LANGS.international;
+export const REGION_TITLE: Record<string, string> = {
+  international: "International (Deutsch, Englisch, Französisch, Spanisch, Italienisch, Portugiesisch)",
+  japan: "Japanisch (Japanisch, Koreanisch)", korea: "Koreanisch", china: "Chinesisch (vereinfacht)", taiwan: "Taiwan (Chinesisch traditionell)",
+};
 // Grading-Firmen: die großen zuerst, danach weitere (Stand der Recherche), "Andere" = freie Eingabe
 export const GRADERS = [
   "PSA", "BGS", "CGC", "SGC", "TAG", "ACE", "ARS", "PCA", "BCCG", "BVG", "PGS", "GMA", "KSA", "MNT", "MGC",

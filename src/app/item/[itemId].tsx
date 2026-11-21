@@ -176,7 +176,7 @@ export default function ItemScreen() {
         {!isWish && !isClosed && <BinderZuweisen itemId={item.id} />}
         <H>{isWish ? "Gekauft? Zustand und Kaufpreis eintragen" : "Eintrag bearbeiten"}</H>
         {isWish && <Sub>Diese Karte steht auf deiner Wunschliste. Mit „In Sammlung übernehmen“ wandert sie samt Zustand, Kaufpreis und Datum in deine Sammlung.</Sub>}
-        <ItemForm variants={variants} lockVariant initial={{ ...item, variant_id: v?.id ?? null }} onSave={save} saveLabel={isWish ? "In Sammlung übernehmen" : "Speichern"} />
+        <ItemForm variants={variants} region={item.cards.sets?.region ?? "international"} lockVariant initial={{ ...item, variant_id: v?.id ?? null }} onSave={save} saveLabel={isWish ? "In Sammlung übernehmen" : "Speichern"} />
         <Btn kind="danger" title={isWish ? "Von der Wunschliste entfernen" : "Eintrag löschen"} onPress={remove} />
       </ScrollView>
     </Screen>

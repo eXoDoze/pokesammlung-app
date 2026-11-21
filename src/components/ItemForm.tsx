@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { View } from "react-native";
 import type { Variant } from "../lib/data";
-import { CONDITIONS, FINISH_LABEL, GRADERS, LANGUAGES, deToIso, isFirstEd, isShadowless, isoToDe, variantLabel } from "../lib/labels";
+import { CONDITIONS, FINISH_LABEL, GRADERS, LANGUAGES, deToIso, isFirstEd, isShadowless, isoToDe, langsForRegion, variantLabel } from "../lib/labels";
 import { Btn, Chip, Field, Row, Sub } from "./ui";
 
 export type FormValues = {
@@ -14,15 +14,18 @@ export type FormValues = {
 
 const num = (s: string) => { const n = Number(s.replace(",", ".")); return s.trim() === "" || !Number.isFinite(n) ? null : n; };
 
-export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, defaultLanguage }: {
+export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, defaultLanguage, region }: {
   variants: Variant[]; initial?: Partial<FormValues>; onSave: (v: FormValues) => Promise<void>;
   saveLabel: string; lockVariant?: boolean; defaultLanguage?: string;
+  region?: string | null;   // Region des Sets: bestimmt, welche Sprachen zur Karte passen
 }) {
+  const allowed = langsForRegion(region);
   const startVariant = variants.find((v) => v.id === initial?.variant_id) ?? variants[0];
   const [variantId, setVariantId] = useState<string | null>(startVariant?.id ?? null);
   const [finish, setFinish] = useState<string>(initial?.finish ?? startVariant?.finish ?? "non_holo");
   const [stamp, setStamp] = useState<string>(initial?.stamp ?? startVariant?.stamps?.[0] ?? "");
-  const [lang, setLang] = useState(initial?.language ?? defaultLanguage ?? "de");
+  const startLang = initial?.language ?? defaultLanguage ?? allowed[0];
+  const [lang, setLang] = useState(region && !allowed.includes(startLang) && !initial?.language ? allowed[0] : startLang);
   const [cond, setCond] = useState(initial?.condition ?? "NM");
   const [graded, setGraded] = useState(initial?.is_graded ?? false);
   const knownGrader = (c?: string | null) => !!c && GRADERS.includes(c);
@@ -85,7 +88,12 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
       </Row>
       <Field label="Stempel (optional, z. B. Pokémon League, Prerelease)" value={stamp} onChangeText={setStamp} placeholder="leer = ohne Stempel" />
       <Sub>Sprache der Karte</Sub>
-      <Row>{LANGUAGES.map((l) => <Chip key={l.code} label={l.label} on={lang === l.code} onPress={() => setLang(l.code)} />)}</Row>
+      <Row>
+        {allowed.map((code) => <Chip key={code} label={LANGUAGES.find((l) => l.code === code)?.label ?? code} on={lang === code} onPress={() => setLang(code)} />)}
+        {/* Bestehender Eintrag mit einer Sprache, die es zu dieser Karte nicht gibt: sichtbar lassen, damit man sie korrigieren kann */}
+        {!allowed.includes(lang) && <Chip label={`${LANGUAGES.find((l) => l.code === lang)?.label ?? lang} (gibt es zu dieser Karte nicht)`} on onPress={() => {}} />}
+      </Row>
+      {region === "japan" && <Sub>Das japanische Cardmarket-Produkt gilt für Japanisch und Koreanisch.</Sub>}
       <Sub>Zustand</Sub>
       <Row>
         {CONDITIONS.map((c) => (

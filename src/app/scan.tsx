@@ -185,7 +185,7 @@ export default function Scan() {
             </View>
           </View>
           <H>Zur Sammlung „{active?.name ?? "–"}“ hinzufügen</H>
-          <ItemForm variants={pick.variants} onSave={savePick} saveLabel="Hinzufügen" defaultLanguage={REGION_LANG[pick.hit.region] ?? "de"} />
+          <ItemForm variants={pick.variants} onSave={savePick} saveLabel="Hinzufügen" defaultLanguage={REGION_LANG[pick.hit.region] ?? "de"} region={pick.hit.region} />
           <Btn kind="ghost" title="Abbrechen" onPress={() => setPick(null)} />
         </ScrollView>
       )}

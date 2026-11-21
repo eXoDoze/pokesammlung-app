@@ -17,7 +17,6 @@ const REGIONS = [
   { value: "japan", label: "🇯🇵 Japanisch" },
   { value: "korea", label: "🇰🇷 Koreanisch" },
   { value: "china", label: "🇨🇳 Chinesisch (vereinfacht)" },
-  { value: "taiwan", label: "🇹🇼 Chinesisch (traditionell)" },
 ];
 const PAGE = 60;
 const COLS = 3;

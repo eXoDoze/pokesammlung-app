@@ -25,7 +25,7 @@ export default function TagScreen() {
       let query = supabase.from("cards")
         .select("id,number,name_en,name_de,name_ja,name_ko,name_zh,image_url,sets!inner(name_en,name_de,name_ja,name_ko,name_zh,region,release_date)")
         .limit(600);
-      if (region !== "all") query = query.eq("sets.region", region);
+      if (region !== "all") query = query.eq("sets.region", region); else query = query.neq("sets.region", "taiwan");
       const pats = Array.isArray(tag.pat) ? tag.pat : [tag.pat];
       if (pats.length === 1) query = tag.op === "like" ? query.like(tag.col, pats[0]) : query.ilike(tag.col, pats[0]);
       else query = query.or(pats.map((p) => `${tag.col}.${tag.op}.${p.replace(/%/g, "*")}`).join(","));
@@ -47,7 +47,7 @@ export default function TagScreen() {
       <View style={{ padding: 16, paddingBottom: 8 }}>
         <Txt bold>{busy ? "Lade …" : `${shown.length} Karten`}{rows.length >= 600 ? " (die ersten 600)" : ""}</Txt>
         <Row>
-          {[["all", "Alle"], ["international", "Englisch/Deutsch"], ["japan", "Japanisch"], ["korea", "Koreanisch"], ["china", "Chinesisch"], ["taiwan", "Taiwan"]].map(([k, l]) => (
+          {[["all", "Alle"], ["international", "Englisch/Deutsch"], ["japan", "Japanisch"], ["korea", "Koreanisch"], ["china", "Chinesisch"]].map(([k, l]) => (
             <Chip key={k} label={l} on={region === k} onPress={() => setRegion(k)} />
           ))}
         </Row>

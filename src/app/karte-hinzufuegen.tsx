@@ -39,7 +39,7 @@ export default function KarteHinzufuegenScreen() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40, maxWidth: 760, width: "100%", alignSelf: "center" }} keyboardShouldPersistTaps="handled">
         <Panel>
           <H>{cardName(card)} → „{active?.name ?? "–"}“</H>
-          <ItemForm variants={card.card_variants as Variant[]} onSave={save} saveLabel="Hinzufügen" defaultLanguage={lang === "ja" ? "ja" : lang} />
+          <ItemForm variants={card.card_variants as Variant[]} onSave={save} saveLabel="Hinzufügen" defaultLanguage={lang === "ja" ? "ja" : lang} region={card.sets?.region ?? "international"} />
         </Panel>
       </ScrollView>
     </Screen>

@@ -9,7 +9,6 @@ const REGIONS = [
   { value: "japan", label: "🇯🇵 Japanisch" },
   { value: "korea", label: "🇰🇷 Koreanisch" },
   { value: "china", label: "🇨🇳 Chinesisch (vereinfacht)" },
-  { value: "taiwan", label: "🇹🇼 Chinesisch (traditionell)" },
 ];
 const FINISHES = [{ v: "non_holo", l: "Non-Holo" }, { v: "holo", l: "Holo" }, { v: "reverse_holo", l: "Reverse Holo" }];
 

@@ -41,6 +41,7 @@ export default function Mastersets() {
       for (let i = 0; i < ids.length; i += 100) {
         const { data } = await supabase.from("sets").select("id,name_en,name_de,name_ja,name_ko,name_zh,region,card_count,logo_url,cover_url").in("id", ids.slice(i, i + 100));
         for (const s of (data ?? []) as any[]) {
+          if (s.region === "taiwan") continue;
           out.push({ id: s.id, name: setTitle(s, s.id), have: per.get(s.id)!.size, total: s.card_count ?? 0, logo: s.logo_url ?? s.cover_url ?? null, hay: [s.name_en, s.name_de, s.name_ja, s.name_ko, s.name_zh, s.id].filter(Boolean).join(" ").toLowerCase() });
         }
       }
@@ -55,9 +56,9 @@ export default function Mastersets() {
     const have = new Set(rows.map((r) => r.id));
     const out: Row[] = [];
     for (let from = 0; ; from += 1000) {
-      const { data } = await supabase.from("sets").select("id,name_en,name_de,name_ja,name_ko,name_zh,card_count,logo_url,cover_url").eq("hidden", false).range(from, from + 999);
+      const { data } = await supabase.from("sets").select("id,name_en,name_de,name_ja,name_ko,name_zh,region,card_count,logo_url,cover_url").eq("hidden", false).range(from, from + 999);
       for (const s of (data ?? []) as any[]) {
-        if (have.has(s.id)) continue;
+        if (have.has(s.id) || s.region === "taiwan") continue;
         out.push({ id: s.id, name: setTitle(s, s.id), have: 0, total: s.card_count ?? 0, logo: s.logo_url ?? s.cover_url ?? null, hay: [s.name_en, s.name_de, s.name_ja, s.name_ko, s.name_zh, s.id].filter(Boolean).join(" ").toLowerCase() });
       }
       if (!data || data.length < 1000) break;
