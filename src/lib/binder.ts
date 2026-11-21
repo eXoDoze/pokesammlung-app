@@ -7,10 +7,11 @@ export type Binder = { id: string; owner_id: string; collection_id: string | nul
 // page/slot = null: Karte liegt im Binder, hat aber noch keinen festen Platz
 export type Slot = { id: string; binder_id: string; page: number | null; slot: number | null; item_id: string; item: Item | null };
 
-export const layoutCols = (l: Layout) => 3;
-export const layoutRows = (l: Layout) => (l === "3x4" ? 4 : 3);
+// "3x4" bleibt der gespeicherte Schlüssel, bedeutet aber 4 Spalten × 3 Reihen (Querformat), Anzeige: 4×3
+export const layoutCols = (l: Layout) => (l === "3x4" ? 4 : 3);
+export const layoutRows = (l: Layout) => 3;
 export const slotsPerPage = (l: Layout) => (l === "list" ? 0 : layoutCols(l) * layoutRows(l));
-export const layoutLabel = (l: Layout) => (l === "list" ? "Liste" : l === "3x4" ? "3×4" : "3×3");
+export const layoutLabel = (l: Layout) => (l === "list" ? "Liste" : l === "3x4" ? "4×3" : "3×3");
 
 export async function fetchBinders(collectionId: string | null): Promise<Binder[]> {
   let q = supabase.from("binders").select("*").order("created_at");

@@ -60,7 +60,7 @@ export default function Mehr() {
           Der Wert einer Karte ist der günstigste Preis im gewählten Zustand (alle Verkäufer, Cardmarket); zusätzlich siehst du den günstigsten Preis von Verkäufern aus Deutschland. Fehlt der Zustandspreis, zeigt die App den Ab-Preis, nur bei Karten aus gemischten Sprachprodukten bleibt der Wert leer. Ein selbst gesetzter Wert hat immer Vorrang. Zustandspreise werden wöchentlich (ab 25 €) bzw. monatlich aktualisiert.
         </Sub>
         <H>Binder</H>
-        <Sub>Beim Seitenwechsel im Binder (3×3 / 3×4) wie ein Buch umblättern.</Sub>
+        <Sub>Beim Seitenwechsel im Binder (3×3 / 4×3) wie ein Buch umblättern.</Sub>
         <Row><Chip label="Umblätter-Animation: an" on={flip} onPress={() => { setFlip(true); setPageFlip(true); }} /><Chip label="aus" on={!flip} onPress={() => { setFlip(false); setPageFlip(false); }} /></Row>
         <H>App-Update</H>
         <Sub>{updInfo}</Sub>

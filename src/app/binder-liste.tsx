@@ -74,7 +74,7 @@ export default function BinderListe() {
           <Panel style={{ marginTop: 16 }}>
             <Field label="Name des Binders" value={name} onChangeText={setName} placeholder="z. B. Glurak-Binder, Base Set" />
             <Sub style={{ marginBottom: 6 }}>Aufbau</Sub>
-            <Segmented value={layout} onChange={(v) => setLayout(v as Layout)} options={[{ value: "3x3", label: "3×3 (9 Plätze)" }, { value: "3x4", label: "3×4 (12 Plätze)" }]} />
+            <Segmented value={layout} onChange={(v) => setLayout(v as Layout)} options={[{ value: "3x3", label: "3×3 (9 Plätze)" }, { value: "3x4", label: "4×3 (12 Plätze)" }]} />
             {<View style={{ marginTop: 10 }}><Field label="Anzahl Seiten (jederzeit erweiterbar)" value={pages} onChangeText={setPages} keyboardType="number-pad" /></View>}
             <Sub style={{ marginBottom: 6 }}>Das Raster wählst du passend zu deinem echten Binder; die Listenansicht kannst du später jederzeit im Binder umschalten. Ein Binder gehört zu „{active?.name}“, darf aber Karten aus all deinen Sammlungen enthalten.</Sub>
             <Btn title="Binder anlegen" onPress={create} disabled={!name.trim()} />
