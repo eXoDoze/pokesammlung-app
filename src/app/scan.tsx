@@ -99,6 +99,7 @@ export default function Scan() {
   const [lines, setLines] = useState<string[] | null>(null);
   const [cands, setCands] = useState<Cand[]>([]);
   const [manual, setManual] = useState("");
+  const [manualDex, setManualDex] = useState(""); // Pokédex-Nummer (von "No. 049"), zusätzlich zum Namen durchsuchbar
   const [added, setAdded] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
   const [torch, setTorch] = useState(false);
@@ -109,6 +110,7 @@ export default function Scan() {
     const p = parseOcr(ol);
     const ls = ol.map((o) => o.text);
     setLines(ls);
+    setManualDex(p.dex ? String(p.dex) : "");
     setManual(p.tokens.slice(0, 1).join(" ")); // nur der größte Text (Name); mehrere Wörter würden die Suche einengen
     setCands(await findCandidates(p));
   };
@@ -124,11 +126,21 @@ export default function Scan() {
   };
 
   const manualSearch = async () => {
-    if (manual.trim().length < 2) return;
+    const dexNum = /^\d{1,4}$/.test(manualDex.trim()) ? Number(manualDex.trim()) : undefined;
+    if (manual.trim().length < 2 && !dexNum) return;
     setBusy(true);
-    const hits = await search(manual.trim(), ["all"]); // manuelle Suche bleibt unbeschränkt
     const p = parseOcr(lines ?? []);
-    setCands(hits.map((h) => ({ hit: h, score: scoreHit(h, p, 1) })).sort((a, b) => b.score - a.score).slice(0, 20));
+    // manuelle Suche bleibt unbeschränkt: Name (alle Regionen) und/oder Pokédex-Nummer (alle Regionen)
+    const [nameHits, dexHits] = await Promise.all([
+      manual.trim().length >= 2 ? search(manual.trim(), ["all"]) : Promise.resolve([] as Hit[]),
+      byDex(dexNum, false),
+    ]);
+    const dexIds = new Set(dexHits.map((h) => h.id));
+    const map = new Map<string, Hit>();
+    [...nameHits, ...dexHits].forEach((h) => { if (!map.has(h.id)) map.set(h.id, h); });
+    const nameIds = new Set(nameHits.map((h) => h.id));
+    // Treffer, die Name UND Pokédex-Nummer erfüllen, stehen ganz oben
+    setCands([...map.values()].map((h) => ({ hit: h, score: scoreHit(h, p, 1) + (nameIds.has(h.id) && dexIds.has(h.id) ? 40 : 0) + (dexIds.has(h.id) ? 4 : 0) })).sort((a, b) => b.score - a.score).slice(0, 30));
     setBusy(false);
   };
 
@@ -205,6 +217,7 @@ export default function Scan() {
       {showResults && (
         <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
           <Field label="Suchbegriff (anpassen, wenn nichts passt)" value={manual} onChangeText={setManual} onSubmitEditing={manualSearch} autoCorrect={false} />
+          <Field label="Pokédex-Nummer (steht auf alten Karten unten rechts als „No. 049“)" value={manualDex} onChangeText={setManualDex} onSubmitEditing={manualSearch} keyboardType="number-pad" />
           <Btn kind="ghost" title="Suchen" onPress={manualSearch} />
           {busy && <ActivityIndicator color={t.accent} style={{ marginVertical: 12 }} />}
           {!busy && cands.length === 0 && <Sub style={{ marginVertical: 12 }}>Keine passende Karte gefunden. Passe den Suchbegriff an oder fotografiere noch einmal.</Sub>}
