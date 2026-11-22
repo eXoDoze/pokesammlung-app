@@ -99,7 +99,7 @@ export default function Scan() {
   const [lines, setLines] = useState<string[] | null>(null);
   const [cands, setCands] = useState<Cand[]>([]);
   const [manual, setManual] = useState("");
-  const [manualDex, setManualDex] = useState(""); // Pokédex-Nummer (von "No. 049"), zusätzlich zum Namen durchsuchbar
+  const [manualNum, setManualNum] = useState(""); // Pokédex-Nummer (von "No. 049"), zusätzlich zum Namen durchsuchbar
   const [added, setAdded] = useState<string[]>([]);
   const [msg, setMsg] = useState("");
   const [torch, setTorch] = useState(false);
@@ -110,7 +110,7 @@ export default function Scan() {
     const p = parseOcr(ol);
     const ls = ol.map((o) => o.text);
     setLines(ls);
-    setManualDex(p.dex ? String(p.dex) : "");
+    setManualNum(p.dex ? String(p.dex) : (p.numbers[0] ? `${p.numbers[0].num}${p.numbers[0].total ? "/" + p.numbers[0].total : ""}` : (p.codes[0] ?? "")));
     setManual(p.tokens.slice(0, 1).join(" ")); // nur der größte Text (Name); mehrere Wörter würden die Suche einengen
     setCands(await findCandidates(p));
   };
@@ -126,21 +126,29 @@ export default function Scan() {
   };
 
   const manualSearch = async () => {
-    const dexNum = /^\d{1,4}$/.test(manualDex.trim()) ? Number(manualDex.trim()) : undefined;
-    if (manual.trim().length < 2 && !dexNum) return;
+    // Feld "Nummer": nur Ziffern = Pokédex-Nr. ("No. 049"); 123/456 = Kartennummer; BW83 / SWSH123 = Promo-Code
+    const nr = manualNum.trim();
+    const dexNum = /^\d{1,4}$/.test(nr) ? Number(nr) : undefined;
+    const slash = nr.match(/^0*(\d+)\s*\/\s*(\d+)$/);
+    const code = !dexNum && !slash && /^[A-Za-z]{1,6}-?\d+[A-Za-z]?$/.test(nr) ? nr : "";
+    if (manual.trim().length < 2 && !nr) return;
     setBusy(true);
     const p = parseOcr(lines ?? []);
-    // manuelle Suche bleibt unbeschränkt: Name (alle Regionen) und/oder Pokédex-Nummer (alle Regionen)
-    const [nameHits, dexHits] = await Promise.all([
+    const [nameHits, dexHits, numHits, codeHits] = await Promise.all([
       manual.trim().length >= 2 ? search(manual.trim(), ["all"]) : Promise.resolve([] as Hit[]),
       byDex(dexNum, false),
+      slash ? byNumber(slash[1], slash[2]) : Promise.resolve([] as Hit[]),
+      code ? search(code, ["all"]) : Promise.resolve([] as Hit[]),
     ]);
-    const dexIds = new Set(dexHits.map((h) => h.id));
-    const map = new Map<string, Hit>();
-    [...nameHits, ...dexHits].forEach((h) => { if (!map.has(h.id)) map.set(h.id, h); });
+    const nrIds = new Set([...dexHits, ...numHits, ...codeHits].map((h) => h.id));
     const nameIds = new Set(nameHits.map((h) => h.id));
-    // Treffer, die Name UND Pokédex-Nummer erfüllen, stehen ganz oben
-    setCands([...map.values()].map((h) => ({ hit: h, score: scoreHit(h, p, 1) + (nameIds.has(h.id) && dexIds.has(h.id) ? 40 : 0) + (dexIds.has(h.id) ? 4 : 0) })).sort((a, b) => b.score - a.score).slice(0, 30));
+    const map = new Map<string, Hit>();
+    [...nameHits, ...dexHits, ...numHits, ...codeHits].forEach((h) => { if (!map.has(h.id)) map.set(h.id, h); });
+    // Wenn Name UND Nummer passen, steht die Karte ganz oben; dann zählt auch das Veröffentlichungsjahr nicht mehr als Abzug
+    setCands([...map.values()].map((h) => {
+      const both = nameIds.has(h.id) && nrIds.has(h.id);
+      return { hit: h, score: scoreHit(h, p, 1) + (both ? 60 : 0) + (nrIds.has(h.id) ? 4 : 0) };
+    }).sort((x, y) => y.score - x.score).slice(0, 30));
     setBusy(false);
   };
 
@@ -217,7 +225,7 @@ export default function Scan() {
       {showResults && (
         <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
           <Field label="Suchbegriff (anpassen, wenn nichts passt)" value={manual} onChangeText={setManual} onSubmitEditing={manualSearch} autoCorrect={false} />
-          <Field label="Pokédex-Nummer (steht auf alten Karten unten rechts als „No. 049“)" value={manualDex} onChangeText={setManualDex} onSubmitEditing={manualSearch} keyboardType="number-pad" />
+          <Field label="Nummer (Pokédex-Nr. „No. 049“ → 49 · Kartennummer 123/456 · Promo-Code BW83)" value={manualNum} onChangeText={setManualNum} onSubmitEditing={manualSearch} keyboardType="number-pad" />
           <Btn kind="ghost" title="Suchen" onPress={manualSearch} />
           {busy && <ActivityIndicator color={t.accent} style={{ marginVertical: 12 }} />}
           {!busy && cands.length === 0 && <Sub style={{ marginVertical: 12 }}>Keine passende Karte gefunden. Passe den Suchbegriff an oder fotografiere noch einmal.</Sub>}
