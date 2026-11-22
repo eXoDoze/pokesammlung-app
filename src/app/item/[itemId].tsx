@@ -80,10 +80,12 @@ export default function ItemScreen() {
       });
       if (error) throw new Error(error.message);
       if ((data as any)?.error) throw new Error((data as any).error);
-      const d = data as { all: number | null; de: number | null; offers: number; price_condition?: string };
+      const d = data as { all: number | null; de: number | null; offers: number; price_condition?: string; de_pending?: boolean };
+      // Deutschland-Preis kommt kurz nach dem Hauptpreis: nach einigen Sekunden still nachladen
+      if (d.de_pending) setTimeout(async () => { try { setCond(await latestCondPrices([item.card_id])); setVal((await valuesForItems([item])).get(item.id) ?? null); } catch {} }, 20000);
       setCond(await latestCondPrices([item.card_id]));
       setVal((await valuesForItems([item])).get(item.id) ?? null);
-      setLiveMsg(d.all == null ? "Aktuell kein Angebot in diesem Zustand auf Cardmarket." : `Aktualisiert: ${eur(d.all)} (alle Verkäufer, ${d.offers} Angebote)${d.de != null ? ` · ${eur(d.de)} (nur Deutschland)` : ""}${d.price_condition && d.price_condition !== item.condition ? ` · Preis für ${conditionLabel(d.price_condition)}, weil ${conditionLabel(item.condition)} aktuell nicht angeboten wird` : ""}`);
+      setLiveMsg(d.all == null ? "Aktuell kein Angebot in diesem Zustand auf Cardmarket." : `Aktualisiert: ${eur(d.all)} (alle Verkäufer, ${d.offers} Angebote)${d.de != null ? ` · ${eur(d.de)} (nur Deutschland)` : d.de_pending ? " · Deutschland-Preis folgt in einigen Sekunden" : ""}${d.price_condition && d.price_condition !== item.condition ? ` · Preis für ${conditionLabel(d.price_condition)}, weil ${conditionLabel(item.condition)} aktuell nicht angeboten wird` : ""}`);
     } catch (e: any) { setLiveMsg(`Preis konnte nicht geladen werden: ${e.message ?? e}`); }
     setLiveBusy(false);
   };
