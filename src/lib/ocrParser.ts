@@ -18,7 +18,7 @@ const STOP = new Set([
   "basic", "stage", "stage1", "stage2", "evolves", "from", "pokemon", "pokémon", "trainer", "item", "supporter", "energy",
   "phase", "phase1", "phase2", "kp", "entwickelt", "sich", "aus", "schwäche", "resistenz", "rückzug", "nintendo", "creatures", "game", "freak",
   "weakness", "resistance", "retreat", "cost", "illus", "illus.", "ability", "attack", "when", "your", "this", "that", "the", "and", "for", "you", "may",
-  "hp", "lv", "no", "ex", "gx", "vmax", "vstar", "v", "break", "prism", "star", "tera",
+  "sar", "sr", "ur", "ar", "rr", "hr", "chr", "usgmen", "hp", "lv", "no", "ex", "gx", "vmax", "vstar", "v", "break", "prism", "star", "tera",
   "ポケモン", "トレーナー", "エネルギー", "たね", "進化", "進化前", "弱点", "抵抗力", "にげる", "ワザ", "特性", "グッズ", "サポート", "スタジアム",
   "弱点", "抵抗", "撤退", "宝可梦", "训练家", "能量", "포켓몬", "트레이너", "에너지",
 ]);
@@ -39,11 +39,19 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
   const codes: string[] = [];
 
   // auch "O191/151SAR" (O statt 0) und "C191/151" (Buchstabe direkt davor/dahinter)
-  for (const m of text.matchAll(/(?:^|\D)[O0]*(\d{1,3})\s*\/\s*0*(\d{1,3})(?!\d)/g)) numbers.push({ num: m[1], total: m[2] });
-  for (const m of text.matchAll(/\b0*(\d{1,3})\s*\/\s*([A-Z]{1,5}(?:-[A-Z]{1,3})?-?P)\b/gi)) numbers.push({ num: m[1], total: m[2].toUpperCase() });
-  for (const m of text.matchAll(/\b([A-Z]{1,5}\d{1,3}[a-zA-Z]?)\b/g)) {
+  // KP/HP-Bereich oben rechts komplett ignorieren (Zeilen wie "HP70", "KP 180", "HPZ0", "180 HP"): dort stehen keine Namen, Nummern oder Set-Kürzel
+  const HP_LINE = /^\s*(?:HP|KP|PV|PS)\s*\S{0,4}\s*$|^\s*(?:HP|KP|PV|PS)\s*\d|\b\d{2,3}\s*(?:HP|KP)\b/i;
+  const noHp = clean.filter((l) => !HP_LINE.test(l));
+  const textNoHp = noHp.join("\n");
+  // Kartennummer "191/151", auch mit O statt 0, Buchstaben daneben oder angeklebter Nachbarzahl ("G151191/151SAR" -> 191/151)
+  for (const m of textNoHp.matchAll(/(\d+)\s*\/\s*0*(\d{1,3})(?!\d)/g)) {
+    const left = m[1].length > 3 ? m[1].slice(-3) : m[1];
+    numbers.push({ num: left.replace(/^0+(?=\d)/, ""), total: m[2] });
+  }
+  for (const m of textNoHp.matchAll(/\b0*(\d{1,3})\s*\/\s*([A-Z]{1,5}(?:-[A-Z]{1,3})?-?P)\b/gi)) numbers.push({ num: m[1], total: m[2].toUpperCase() });
+  for (const m of textNoHp.matchAll(/\b([A-Z]{2,5}\d{1,3}[a-zA-Z]?)\b/g)) {   // mindestens 2 Buchstaben: "G180" (Regelmarke/Energie + HP) ist kein Set-Kürzel
     const c = m[1].toUpperCase();
-    if (/^(HP|LV)\d/.test(c)) continue;
+    if (/^(HP|KP|LV|PV)/.test(c)) continue;
     if (!codes.includes(c)) codes.push(c);
   }
 
@@ -59,7 +67,9 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
   if (dm) { const n = Number(dm[1]); if (n >= 1 && n <= 1100) dex = n; }
   // Vereinfachte chinesische Zeichen (gibt es in japanischen Texten nicht): Karte ist chinesisch, auch wenn die Kana-Erkennung einzelne Kana "erfunden" hat
   const simplified = (text.match(/[梦动为张对战变击气电龙宠贝坛应时该们这图线级场备获过选择拥个术够习复费]/g) ?? []).length;
-  const chinese = simplified >= 2;
+  const kanaN = (text.match(/[぀-ヿ]/g) ?? []).length, hanN = (text.match(/[㐀-鿿]/g) ?? []).length;
+  // Chinesisch: vereinfachte Zeichen ODER viele Han-Zeichen mit kaum Kana (echte japanische Karten bestehen großteils aus Kana)
+  const chinese = simplified >= 2 || (hanN >= 12 && kanaN / (hanN + kanaN) < 0.12);
   const japanese = !chinese && /[぀-ヿ]/.test(text);
   const korean = /[가-힯]/.test(text);
   const han = chinese || (!japanese && !korean && /[㐀-鿿]/.test(text));
@@ -73,7 +83,7 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
   const cand = ocr
     .map((o, i) => ({ text: norm(o.text), h: o.h ?? 0, i }))
     .map((o) => ({ ...o, text: o.text.replace(TYPE_WORD, "").trim() }))
-    .filter((o) => o.text && !JUNK.test(o.text) && /\p{L}{3}/u.test(o.text));
+    .filter((o) => o.text && !HP_LINE.test(o.text) && !JUNK.test(o.text) && /\p{L}{3}/u.test(o.text));
   const nameLines = (hasH ? [...cand].sort((a, b) => b.h - a.h || a.i - b.i).slice(0, 4) : cand.slice(0, 8)).map((o) => o.text);
   const tokens: string[] = [];
   for (const line of nameLines) {
@@ -87,6 +97,7 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
       const len = CJK.test(tk) ? 2 : 3;
       if (tk.length < len) continue;
       if (STOP.has(tk.toLowerCase())) continue;
+      if (/^[A-Za-z\-]{15,}$/.test(tk) || (tk.length > 12 && /[a-z][A-Z]/.test(tk) && /[A-Z]{3}/.test(tk))) continue;   // Texterkennungs-Müll ("OtTEVEUPOIRL-JiDITLI")
       if (/^(phase|basis|stufe|stage|basic)[1-2il]?$/i.test(tk)) continue;
       if (!tokens.includes(tk)) tokens.push(tk);
     }
