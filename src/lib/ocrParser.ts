@@ -117,6 +117,8 @@ export function scoreHit(h: Hit, p: Parsed, matchedTokens: number): number {
     const setCode = h.set_id.includes(":") ? h.set_id.split(":")[1].toUpperCase() : h.set_id.toUpperCase();
     if (c === setCode) s += 3;                    // Set-Kürzel auf der Karte
   }
+  // "No. 049" (Pokédex-Nummer unten rechts) gibt es nur auf alten Karten: moderne Karten (ab 2012, z. B. Full Art / Rainbow) stark abwerten
+  if (p.dex && h.release_date && Number(String(h.release_date).slice(0, 4)) >= 2012) s -= 12;
   if (p.japanese && h.region === "japan") s += 4;               // Kana im Text: japanische Karte bevorzugen
   if (p.artist && h.artist) {
     const a = h.artist.toLowerCase(), b = p.artist.toLowerCase();
