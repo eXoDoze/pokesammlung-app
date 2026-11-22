@@ -126,7 +126,7 @@ export function allowedRegions(p: Parsed): string[] {
 export function scoreHit(h: Hit, p: Parsed, matchedTokens: number): number {
   let s = matchedTokens * 3;
   // Genau gleicher Name zählt mehr als nur "enthält" (Mew <-> Mewtu, ミュウ <-> ミュウツー)
-  const names = [h.name_en, h.name_de, h.name_ja, h.name_ko, h.name_zh].filter(Boolean).map((x) => String(x).normalize("NFKC").toLowerCase().replace(/[\s'’.\-]/g, ""));
+  const names = [h.name_en, h.name_de, h.name_ja, h.name_ko, h.name_zh].filter(Boolean).map((x) => String(x).replace(/\s+-\s+\d+\/[\w-]+$/, "").normalize("NFKC").toLowerCase().replace(/[\s'’.\-]/g, ""));   // "Mew - 091/PCG-P" zählt als "Mew"
   if (p.tokens.some((tk) => names.includes(tk.normalize("NFKC").toLowerCase().replace(/[\s'’.\-]/g, "")))) s += 8;
   const num = stripZeros(String(h.number ?? "").split("/")[0].toUpperCase());
   for (const n of p.numbers) {
@@ -139,7 +139,8 @@ export function scoreHit(h: Hit, p: Parsed, matchedTokens: number): number {
   }
   // "No. 049" (Pokédex-Nummer unten rechts) gibt es nur auf alten Karten: moderne Karten (ab 2012, z. B. Full Art / Rainbow) stark abwerten
   if (p.dex && h.release_date && Number(String(h.release_date).slice(0, 4)) >= 2012) s -= 12;
-  if (p.japanese && h.region === "japan") s += 4;               // Kana im Text: japanische Karte bevorzugen
+  if (p.japanese && h.region === "japan") s += 4;
+  if (p.han && h.region === "china") s += 4;                      // chinesische Zeichen: chinesische Karte bevorzugen               // Kana im Text: japanische Karte bevorzugen
   if (p.artist && h.artist) {
     const a = h.artist.toLowerCase(), b = p.artist.toLowerCase();
     if (a === b || a.includes(b) || b.includes(a)) s += 4;     // gleicher Illustrator
