@@ -38,7 +38,8 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
   const numbers: Parsed["numbers"] = [];
   const codes: string[] = [];
 
-  for (const m of text.matchAll(/\b0*(\d{1,3})\s*\/\s*0*(\d{1,3})\b/g)) numbers.push({ num: m[1], total: m[2] });
+  // auch "O191/151SAR" (O statt 0) und "C191/151" (Buchstabe direkt davor/dahinter)
+  for (const m of text.matchAll(/(?:^|\D)[O0]*(\d{1,3})\s*\/\s*0*(\d{1,3})(?!\d)/g)) numbers.push({ num: m[1], total: m[2] });
   for (const m of text.matchAll(/\b0*(\d{1,3})\s*\/\s*([A-Z]{1,5}(?:-[A-Z]{1,3})?-?P)\b/gi)) numbers.push({ num: m[1], total: m[2].toUpperCase() });
   for (const m of text.matchAll(/\b([A-Z]{1,5}\d{1,3}[a-zA-Z]?)\b/g)) {
     const c = m[1].toUpperCase();
@@ -56,9 +57,12 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
   let dex: number | undefined;
   const dm = text.match(/\bN[o0a]\s*[.:]?\s*(\d{3,4})\b/i);
   if (dm) { const n = Number(dm[1]); if (n >= 1 && n <= 1100) dex = n; }
-  const japanese = /[぀-ヿ]/.test(text);
+  // Vereinfachte chinesische Zeichen (gibt es in japanischen Texten nicht): Karte ist chinesisch, auch wenn die Kana-Erkennung einzelne Kana "erfunden" hat
+  const simplified = (text.match(/[梦动为张对战变击气电龙宠贝坛应时该们这图线级场备获过选择拥个术够习复费]/g) ?? []).length;
+  const chinese = simplified >= 2;
+  const japanese = !chinese && /[぀-ヿ]/.test(text);
   const korean = /[가-힯]/.test(text);
-  const han = !japanese && !korean && /[㐀-鿿]/.test(text);
+  const han = chinese || (!japanese && !korean && /[㐀-鿿]/.test(text));
 
   let hp: number | undefined;
   const h = text.match(/\bHP\s*(\d{2,3})\b/i) ?? text.match(/\b(\d{2,3})\s*HP\b/i);
@@ -87,6 +91,8 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
       if (!tokens.includes(tk)) tokens.push(tk);
     }
   }
+  // "梦幻ex" / "ミュウex": zusätzlich ohne Zusatz suchen
+  for (const tk of [...tokens]) { const m = tk.match(/^([㐀-鿿぀-ヿ]{2,}?)(?:ex|EX|GX|VMAX|VSTAR|V)$/); if (m && !tokens.includes(m[1])) tokens.push(m[1]); }
   return { numbers, codes, tokens: tokens.slice(0, 6), hp, artist, dex, japanese, korean, han };
 }
 
@@ -108,6 +114,9 @@ export function allowedRegions(p: Parsed): string[] {
 
 export function scoreHit(h: Hit, p: Parsed, matchedTokens: number): number {
   let s = matchedTokens * 3;
+  // Genau gleicher Name zählt mehr als nur "enthält" (Mew <-> Mewtu, ミュウ <-> ミュウツー)
+  const names = [h.name_en, h.name_de, h.name_ja, h.name_ko, h.name_zh].filter(Boolean).map((x) => String(x).normalize("NFKC").toLowerCase().replace(/[\s'’.\-]/g, ""));
+  if (p.tokens.some((tk) => names.includes(tk.normalize("NFKC").toLowerCase().replace(/[\s'’.\-]/g, "")))) s += 8;
   const num = stripZeros(String(h.number ?? "").split("/")[0].toUpperCase());
   for (const n of p.numbers) {
     if (num && stripZeros(n.num) === num) s += 5;

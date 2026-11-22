@@ -32,6 +32,8 @@ async function readText(uri: string, mode: Mode): Promise<OcrLine[]> {
   };
   await run(); // Latein
   if (mode === "auto") await run(T.JAPANESE);
+  // Vereinfachte chinesische Zeichen entdeckt (Japanisch-Erkennung allein liest sie schlecht): zusätzlich mit chinesischer Erkennung lesen
+  if (mode === "auto" && ((lines.map((l) => l.text).join(" ").match(/[梦动为张对战变击气电龙宠贝坛应时该们这图线级场备获过选择拥个术够习复费]/g) ?? []).length >= 2)) await run(T.CHINESE);
   if (mode === "zh") await run(T.CHINESE);
   if (mode === "ko") await run(T.KOREAN);
   const seen = new Set<string>();

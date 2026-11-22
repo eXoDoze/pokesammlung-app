@@ -57,8 +57,6 @@ export default function ItemScreen() {
   const low = row && fits ? (rev ? row.low_foil : row.low) : null;
   const urlPlain = cardmarketUrl({ productId: v?.cardmarket_product_id ?? jaProduct, directUrl: item.cards.cardmarket_url });
   const deCond = findCond(item, cond, "DE");
-  const allCond = findCond(item, cond, "alle");
-  const otherCond = val?.kind === "zustand" && allCond?.price_condition && allCond.price_condition !== item.condition ? allCond.price_condition : null;
   const kindLabel = val
     ? val.kind === "zustand" ? `Günstigstes Angebot · ${conditionLabel(item.condition)} · alle Verkäufer`
       : val.kind === "ab" ? "Günstigstes Angebot · alle Zustände · alle Verkäufer"
@@ -80,12 +78,10 @@ export default function ItemScreen() {
       });
       if (error) throw new Error(error.message);
       if ((data as any)?.error) throw new Error((data as any).error);
-      const d = data as { all: number | null; de: number | null; offers: number; price_condition?: string; de_pending?: boolean };
-      // Deutschland-Preis kommt kurz nach dem Hauptpreis: nach einigen Sekunden still nachladen
-      if (d.de_pending) setTimeout(async () => { try { setCond(await latestCondPrices([item.card_id])); setVal((await valuesForItems([item])).get(item.id) ?? null); } catch {} }, 20000);
+      const d = data as { all: number | null; de: number | null; offers: number };
       setCond(await latestCondPrices([item.card_id]));
       setVal((await valuesForItems([item])).get(item.id) ?? null);
-      setLiveMsg(d.all == null ? "Aktuell kein Angebot in diesem Zustand auf Cardmarket." : `Aktualisiert: ${eur(d.all)} (alle Verkäufer, ${d.offers} Angebote)${d.de != null ? ` · ${eur(d.de)} (nur Deutschland)` : d.de_pending ? " · Deutschland-Preis folgt in einigen Sekunden" : ""}${d.price_condition && d.price_condition !== item.condition ? ` · Preis für ${conditionLabel(d.price_condition)}, weil ${conditionLabel(item.condition)} aktuell nicht angeboten wird` : ""}`);
+      setLiveMsg(d.all == null ? "Aktuell kein Angebot in diesem Zustand auf Cardmarket." : `Aktualisiert: ${eur(d.all)} (alle Verkäufer, ${d.offers} Angebote)${d.de != null ? ` · ${eur(d.de)} (nur Deutschland)` : ""}`);
     } catch (e: any) { setLiveMsg(`Preis konnte nicht geladen werden: ${e.message ?? e}`); }
     setLiveBusy(false);
   };
@@ -137,7 +133,6 @@ export default function ItemScreen() {
             <>
               <Txt bold style={{ fontSize: 24 }}>{eur(val.price)}{item.quantity > 1 ? `  ·  ${eur(val.price * item.quantity)} gesamt` : ""}</Txt>
               <Sub>{kindLabel}</Sub>
-              {otherCond && <Sub>{`Preis für ${conditionLabel(otherCond)}, weil ${conditionLabel(item.condition)} aktuell nicht angeboten wird.`}</Sub>}
             </>
           ) : <Sub>{row && !fits ? "Kein Preis angezeigt: Cardmarket führt diese Karte nur als gemeinsames Produkt für mehrere Sprachen, ein Preis wäre ungenau. Schau über den Link ohne Filter nach und trag unten einen eigenen Wert ein." : "Kein Preis vorhanden. Du kannst unten einen eigenen Wert eintragen."}</Sub>}
           {!item.is_graded && (
@@ -181,7 +176,7 @@ export default function ItemScreen() {
         {!isWish && !isClosed && <BinderZuweisen itemId={item.id} />}
         <H>{isWish ? "Gekauft? Zustand und Kaufpreis eintragen" : "Eintrag bearbeiten"}</H>
         {isWish && <Sub>Diese Karte steht auf deiner Wunschliste. Mit „In Sammlung übernehmen“ wandert sie samt Zustand, Kaufpreis und Datum in deine Sammlung.</Sub>}
-        <ItemForm variants={variants} region={item.cards.sets?.region ?? "international"} lockVariant initial={{ ...item, variant_id: v?.id ?? null }} onSave={save} saveLabel={isWish ? "In Sammlung übernehmen" : "Speichern"} />
+        <ItemForm variants={variants} region={item.cards.sets?.region ?? "international"} initial={{ ...item, variant_id: v?.id ?? null }} onSave={save} saveLabel={isWish ? "In Sammlung übernehmen" : "Speichern"} />
         <Btn kind="danger" title={isWish ? "Von der Wunschliste entfernen" : "Eintrag löschen"} onPress={remove} />
       </ScrollView>
     </Screen>
