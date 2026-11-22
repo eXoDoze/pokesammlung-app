@@ -57,6 +57,14 @@ async function byDex(dex: number | undefined, japanese: boolean | undefined): Pr
   return (data ?? []) as Hit[];
 }
 
+// Passt der Suchtext zu einem der Namen der Karte (in allen Sprachen)?
+function nameIn(h: Hit, text: string): boolean {
+  const w = text.trim().toLowerCase();
+  if (w.length < 2) return false;
+  const x = h as any;
+  return [x.name_en, x.name_de, x.name_ja, x.name_ko, x.name_zh].some((n) => n && String(n).toLowerCase().includes(w));
+}
+
 async function findCandidates(p: Parsed): Promise<Cand[]> {
   const regions = allowedRegions(p);
   const regionOk = (hits: Hit[]) => hits.filter((h) => regions.includes(h.region));
@@ -85,7 +93,10 @@ async function findCandidates(p: Parsed): Promise<Cand[]> {
     const { data } = await supabase.from("cards").select("id, artist").in("id", ids);
     for (const r of (data ?? []) as any[]) { const f = found.get(r.id); if (f) f.hit.artist = r.artist; }
   }
-  return [...found.values()].map(({ hit, n }) => ({ hit, score: scoreHit(hit, p, n) + (numIds.has(hit.id) ? 12 : 0) + (dexIds.has(hit.id) ? 6 : 0) })).sort((a, b) => b.score - a.score).slice(0, 12);
+  return [...found.values()].map(({ hit, n }) => {
+    const dexAndName = dexIds.has(hit.id) && p.tokens.slice(0, 4).some((tk) => nameIn(hit, tk));
+    return { hit, score: scoreHit(hit, p, n) + (numIds.has(hit.id) ? 12 : 0) + (dexIds.has(hit.id) ? 6 : 0) + (dexAndName ? 40 : 0) + (dexAndName && !hit.number ? 8 : 0) };
+  }).sort((a, b) => b.score - a.score).slice(0, 30);
 }
 
 export default function Scan() {
@@ -146,9 +157,10 @@ export default function Scan() {
     [...nameHits, ...dexHits, ...numHits, ...codeHits].forEach((h) => { if (!map.has(h.id)) map.set(h.id, h); });
     // Wenn Name UND Nummer passen, steht die Karte ganz oben; dann zählt auch das Veröffentlichungsjahr nicht mehr als Abzug
     setCands([...map.values()].map((h) => {
-      const both = nameIds.has(h.id) && nrIds.has(h.id);
-      return { hit: h, score: scoreHit(h, p, 1) + (both ? 60 : 0) + (nrIds.has(h.id) ? 4 : 0) };
-    }).sort((x, y) => y.score - x.score).slice(0, 30));
+      const both = nrIds.has(h.id) && (nameIds.has(h.id) || nameIn(h, manual));
+      // Karten ohne Nummer (z. B. Vending Machine, alte japanische Sets) tragen auch gedruckt keine Kartennummer: bei Pokédex-Suche leicht bevorzugen
+      return { hit: h, score: scoreHit(h, p, 1) + (both ? 60 : 0) + (nrIds.has(h.id) ? 4 : 0) + (dexNum && both && !h.number ? 8 : 0) };
+    }).sort((x, y) => y.score - x.score).slice(0, 60));
     setBusy(false);
   };
 
