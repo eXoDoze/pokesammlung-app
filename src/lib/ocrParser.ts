@@ -5,6 +5,7 @@ export type Parsed = {
   codes: string[];                              // z. B. XY202, SV5K, DP50
   tokens: string[];                             // mögliche Namensteile, in Lesereihenfolge
   hp?: number;
+  suffix?: string;                              // "ex", "gx", "v" … aus dem Kartennamen (Namenszusatz)
   year?: number;                                // Copyright-Jahr ("©2005") – grenzt das Set ein
   artist?: string;                              // Illustrator aus der Zeile "Illus. …" / "Illustr. …"
   dex?: number;                                 // Pokédex-Nummer, auf alten japanischen Karten unten rechts als "No. 049"
@@ -26,7 +27,7 @@ const STOP = new Set([
 
 export type OcrLine = { text: string; h?: number };
 // Zeilen, die nie zum Namen gehören (Copyright, Illustrator, Regeltext-Kopfzeilen)
-const JUNK = /\b[ilh]{0,2}lus\b|\bi?llus|©|nintendo|creatures|game\s*freak|illus|pokernon|pok[eé]mon\s*\/|entwickelt|evolves|schw[aä]che|weakness|resist|r[uü]ckzug|retreat|w[aä]hrend|during/i;
+const JUNK = /\b[ilhd]{0,2}lus\b|\bi?llus|©|nintendo|creatures|game\s*freak|illus|pokernon|pok[eé]mon\s*\/|entwickelt|evolves|schw[aä]che|weakness|resist|r[uü]ckzug|retreat|w[aä]hrend|during/i;
 
 // Entwicklungsstufe oben links ("PHASE 1", "BASIS", "STAGE 2", "Stufe 1", auch zusammengeklebt oder falsch gelesen)
 const TYPE_WORD = /^\s*(?:phase|ph[a4]se|basis|basic|stufe|stage|stadium)\s*[1-2Il|]?\b\s*/i;
@@ -49,6 +50,8 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
     const left = m[1].length > 3 ? m[1].slice(-3) : m[1];
     numbers.push({ num: left.replace(/^0+(?=\d)/, ""), total: m[2] });
   }
+  // "191/1515AR": das S der Seltenheit "SAR" wurde als 5 gelesen
+  if (!numbers.length) for (const m of textNoHp.matchAll(/(\d{1,3})\s*\/\s*(\d{3})\d(?=[A-Za-z])/g)) numbers.push({ num: m[1].replace(/^0+(?=\d)/, ""), total: m[2] });
   for (const m of textNoHp.matchAll(/\b0*(\d{1,3})\s*\/\s*([A-Z]{1,5}(?:-[A-Z]{1,3})?-?P)\b/gi)) numbers.push({ num: m[1], total: m[2].toUpperCase() });
   for (const m of textNoHp.matchAll(/\b[A-Z]?(\d{2,3}[A-Z])\b/g)) { const c = m[1]; if (!codes.includes(c)) codes.push(c); }   // Set-Kürzel wie "151C" (auch aus "G151C")
   for (const m of textNoHp.matchAll(/\b([A-Z]{2,5}\d{1,3}[a-zA-Z]?)\b/g)) {   // mindestens 2 Buchstaben: "G180" (Regelmarke/Energie + HP) ist kein Set-Kürzel
@@ -59,7 +62,7 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
 
   let artist: string | undefined;
   for (const l of clean) {
-    const m = l.match(/\b[IlH]{0,2}lus(?:tr)?\.?\s*[:：]?\s*([\p{L}][\p{L}.'’\- ]{2,40})/iu);
+    const m = l.match(/\b[IlHD]{0,2}lus(?:tr)?\.?\s*[:：]?\s*([\p{L}][\p{L}.'’\- ]{2,40})/iu);
     if (m) { artist = m[1].replace(/\s+(?:\d.*)$/, "").trim(); break; }
   }
 
@@ -78,6 +81,10 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
   const korean = hangulN >= 5 && hangulN >= kanaN && hangulN * 1.5 >= hanN;
   const han = chinese || (!japanese && !korean && /[㐀-鿿]/.test(text));
 
+  // Namenszusatz "ex" (kommt als Wort allein vor, z. B. "eX机刚", "ex체R"): unterscheidet ex-Karten von GX-/V-Karten gleicher Nummer
+  let suffix: string | undefined;
+  if (/(?:^|[^A-Za-z])ex(?![A-Za-z])/i.test(text)) suffix = "ex";
+  else if (/(?:^|[^A-Za-z])gx(?![A-Za-z])/i.test(text)) suffix = "gx";
   // Copyright-Jahr ("©2005", "C2005 Pokémon"): 1996 bis heute
   let year: number | undefined;
   const ym = text.match(/(?:©|\(c\)|\bC)\s?(19[9]\d|20[0-2]\d)\b/i);
@@ -112,7 +119,7 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
   }
   // "梦幻ex" / "ミュウex": zusätzlich ohne Zusatz suchen
   for (const tk of [...tokens]) { const m = tk.match(/^([㐀-鿿぀-ヿ]{2,}?)(?:ex|EX|GX|VMAX|VSTAR|V)$/); if (m && !tokens.includes(m[1])) tokens.push(m[1]); }
-  return { numbers, codes, tokens: tokens.slice(0, 6), hp, year, artist, dex, japanese, korean, han };
+  return { numbers, codes, tokens: tokens.slice(0, 6), hp, year, suffix, artist, dex, japanese, korean, han };
 }
 
 export type Hit = {
@@ -149,7 +156,9 @@ export function scoreHit(h: Hit, p: Parsed, matchedTokens: number): number {
   if (p.dex && h.release_date && Number(String(h.release_date).slice(0, 4)) >= 2012) s -= 12;
   if (p.year && h.release_date) { const d = Number(String(h.release_date).slice(0, 4)) - p.year; if (d >= 0 && d <= 1) s += 8; else if (d < -1 || d > 2) s -= 4; }   // Copyright-Jahr passt zum Set
   if (p.japanese && h.region === "japan") s += 4;
-  if (p.han && h.region === "china") s += 4;                      // chinesische Zeichen: chinesische Karte bevorzugen               // Kana im Text: japanische Karte bevorzugen
+  if (p.han && h.region === "china") s += 4;
+  // ex-Karte gescannt: Namen auf " ex" bevorzugen, " GX"/" V"/" VMAX" abwerten (und umgekehrt bei GX)
+  if (p.suffix) { const en = String(h.name_en ?? "").toLowerCase(); const suf = /\s(ex|gx|vmax|vstar|v)$/.exec(en)?.[1]; if (suf === p.suffix) s += 10; else if (suf) s -= 10; }                      // chinesische Zeichen: chinesische Karte bevorzugen               // Kana im Text: japanische Karte bevorzugen
   if (p.artist && h.artist) {
     const a = h.artist.toLowerCase(), b = p.artist.toLowerCase();
     if (a === b || a.includes(b) || b.includes(a)) s += 10;    // gleicher Illustrator

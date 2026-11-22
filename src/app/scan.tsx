@@ -41,7 +41,7 @@ async function readText(uri: string, mode: Mode): Promise<OcrLine[]> {
 
 // Suche je erlaubter Region (so verdrängen viele internationale Karten gleichen Namens nicht die gesuchte asiatische Karte)
 async function search(term: string, regions: string[]): Promise<Hit[]> {
-  const res = await Promise.all(regions.map((r) => supabase.rpc("search_cards", { p_q: term, p_region: r, p_limit: 60, p_offset: 0 })));
+  const res = await Promise.all(regions.map((r) => supabase.rpc("search_cards", { p_q: term, p_region: r, p_limit: 250, p_offset: 0 })));
   return res.flatMap((x) => (x.data ?? []) as Hit[]);
 }
 
