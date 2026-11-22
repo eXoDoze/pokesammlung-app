@@ -5,7 +5,7 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "
 import { Btn, CardImg, Field, H, Screen, Segmented, Sub } from "../components/ui";
 import { FormValues, ItemForm } from "../components/ItemForm";
 import type { Variant } from "../lib/data";
-import { Hit, OcrLine, Parsed, parseOcr, scoreHit } from "../lib/ocrParser";
+import { Hit, OcrLine, Parsed, allowedRegions, parseOcr, scoreHit } from "../lib/ocrParser";
 import { cardName } from "../lib/labels";
 import { useApp } from "../lib/session";
 import { supabase } from "../lib/supabase";
@@ -38,9 +38,10 @@ async function readText(uri: string, mode: Mode): Promise<OcrLine[]> {
   return lines.filter((l) => (seen.has(l.text) ? false : (seen.add(l.text), true)));
 }
 
-async function search(term: string): Promise<Hit[]> {
-  const { data } = await supabase.rpc("search_cards", { p_q: term, p_region: "all", p_limit: 40, p_offset: 0 });
-  return (data ?? []) as Hit[];
+// Suche je erlaubter Region (so verdrängen viele internationale Karten gleichen Namens nicht die gesuchte asiatische Karte)
+async function search(term: string, regions: string[]): Promise<Hit[]> {
+  const res = await Promise.all(regions.map((r) => supabase.rpc("search_cards", { p_q: term, p_region: r, p_limit: 60, p_offset: 0 })));
+  return res.flatMap((x) => (x.data ?? []) as Hit[]);
 }
 
 async function byNumber(num: string, total: string): Promise<Hit[]> {
@@ -49,13 +50,25 @@ async function byNumber(num: string, total: string): Promise<Hit[]> {
   return (data ?? []) as Hit[];
 }
 
+// Alte japanische Karten tragen unten rechts die Pokédex-Nummer ("No. 049"): damit lassen sich auch Karten finden, deren Name nicht erkannt wurde
+async function byDex(dex: number | undefined, japanese: boolean | undefined): Promise<Hit[]> {
+  if (!dex) return [];
+  const { data } = await supabase.rpc("find_cards_by_dex", { p_dex: dex, p_region: japanese ? "japan" : "all" });
+  return (data ?? []) as Hit[];
+}
+
 async function findCandidates(p: Parsed): Promise<Cand[]> {
+  const regions = allowedRegions(p);
+  const regionOk = (hits: Hit[]) => hits.filter((h) => regions.includes(h.region));
   const queries = [...p.tokens.slice(0, 4), ...p.codes.slice(0, 2)];
   const found = new Map<string, { hit: Hit; n: number }>();
-  const [results, numResults] = await Promise.all([
-    Promise.all(queries.map((q) => search(q))),
-    Promise.all(p.numbers.slice(0, 3).map((n) => byNumber(n.num, n.total ?? ""))),
+  const [results, numResults, dexHits] = await Promise.all([
+    Promise.all(queries.map((q) => search(q, regions))),
+    Promise.all(p.numbers.slice(0, 3).map(async (n) => regionOk(await byNumber(n.num, n.total ?? "")))),
+    byDex(p.dex, p.japanese).then(regionOk),
   ]);
+  const dexIds = new Set<string>();
+  dexHits.forEach((h) => { dexIds.add(h.id); if (!found.has(h.id)) found.set(h.id, { hit: h, n: 0 }); });
   const numIds = new Set<string>();
   numResults.forEach((hits) => hits.forEach((h) => { numIds.add(h.id); if (!found.has(h.id)) found.set(h.id, { hit: h, n: 0 }); }));
   results.forEach((hits) => {
@@ -67,12 +80,12 @@ async function findCandidates(p: Parsed): Promise<Cand[]> {
     }
   });
   // Illustrator der Kandidaten nachladen (falls vorhanden) und beim Bewerten berücksichtigen
-  const ids = [...found.keys()].slice(0, 300);
+  const ids = [...found.keys()].slice(0, 400);
   if (p.artist && ids.length) {
     const { data } = await supabase.from("cards").select("id, artist").in("id", ids);
     for (const r of (data ?? []) as any[]) { const f = found.get(r.id); if (f) f.hit.artist = r.artist; }
   }
-  return [...found.values()].map(({ hit, n }) => ({ hit, score: scoreHit(hit, p, n) + (numIds.has(hit.id) ? 12 : 0) })).sort((a, b) => b.score - a.score).slice(0, 12);
+  return [...found.values()].map(({ hit, n }) => ({ hit, score: scoreHit(hit, p, n) + (numIds.has(hit.id) ? 12 : 0) + (dexIds.has(hit.id) ? 6 : 0) })).sort((a, b) => b.score - a.score).slice(0, 12);
 }
 
 export default function Scan() {
@@ -96,7 +109,7 @@ export default function Scan() {
     const p = parseOcr(ol);
     const ls = ol.map((o) => o.text);
     setLines(ls);
-    setManual(p.tokens.slice(0, 2).join(" "));
+    setManual(p.tokens.slice(0, 1).join(" ")); // nur der größte Text (Name); mehrere Wörter würden die Suche einengen
     setCands(await findCandidates(p));
   };
 
@@ -113,7 +126,7 @@ export default function Scan() {
   const manualSearch = async () => {
     if (manual.trim().length < 2) return;
     setBusy(true);
-    const hits = await search(manual.trim());
+    const hits = await search(manual.trim(), ["all"]); // manuelle Suche bleibt unbeschränkt
     const p = parseOcr(lines ?? []);
     setCands(hits.map((h) => ({ hit: h, score: scoreHit(h, p, 1) })).sort((a, b) => b.score - a.score).slice(0, 20));
     setBusy(false);

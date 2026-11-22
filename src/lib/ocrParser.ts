@@ -6,6 +6,10 @@ export type Parsed = {
   tokens: string[];                             // mögliche Namensteile, in Lesereihenfolge
   hp?: number;
   artist?: string;                              // Illustrator aus der Zeile "Illus. …" / "Illustr. …"
+  dex?: number;                                 // Pokédex-Nummer, auf alten japanischen Karten unten rechts als "No. 049"
+  japanese?: boolean;                           // Text enthält Kana (japanische Karte)
+  korean?: boolean;                             // Text enthält Hangul (koreanische Karte)
+  han?: boolean;                                // Text enthält chinesische Schriftzeichen ohne Kana/Hangul (chinesisch, taiwanesisch, ggf. japanisch)
 };
 
 const norm = (s: string) => s.normalize("NFKC").replace(/\s+/g, " ").trim();
@@ -21,7 +25,7 @@ const STOP = new Set([
 
 export type OcrLine = { text: string; h?: number };
 // Zeilen, die nie zum Namen gehören (Copyright, Illustrator, Regeltext-Kopfzeilen)
-const JUNK = /©|nintendo|creatures|game\s*freak|illus|pokernon|pok[eé]mon\s*\/|entwickelt|evolves|schw[aä]che|weakness|resist|r[uü]ckzug|retreat|w[aä]hrend|during/i;
+const JUNK = /\blus\b|\bi?llus|©|nintendo|creatures|game\s*freak|illus|pokernon|pok[eé]mon\s*\/|entwickelt|evolves|schw[aä]che|weakness|resist|r[uü]ckzug|retreat|w[aä]hrend|during/i;
 
 // Entwicklungsstufe oben links ("PHASE 1", "BASIS", "STAGE 2", "Stufe 1", auch zusammengeklebt oder falsch gelesen)
 const TYPE_WORD = /^\s*(?:phase|ph[a4]se|basis|basic|stufe|stage|stadium)\s*[1-2Il|]?\b\s*/i;
@@ -44,9 +48,17 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
 
   let artist: string | undefined;
   for (const l of clean) {
-    const m = l.match(/\bIllus(?:tr)?\.?\s*[:：]?\s*([\p{L}][\p{L}.'’\- ]{2,40})/iu);
+    const m = l.match(/\b(?:Il{1,2}|l{1,2}|I)?lus(?:tr)?\.?\s*[:：]?\s*([\p{L}][\p{L}.'’\- ]{2,40})/iu);
     if (m) { artist = m[1].replace(/\s+(?:\d.*)$/, "").trim(); break; }
   }
+
+  // Pokédex-Nummer alter japanischer Karten ("No. 049", von der Texterkennung oft als "Na 049" / "No.049" gelesen)
+  let dex: number | undefined;
+  const dm = text.match(/\bN[o0a]\s*[.:]?\s*(\d{3,4})\b/i);
+  if (dm) { const n = Number(dm[1]); if (n >= 1 && n <= 1100) dex = n; }
+  const japanese = /[぀-ヿ]/.test(text);
+  const korean = /[가-힯]/.test(text);
+  const han = !japanese && !korean && /[㐀-鿿]/.test(text);
 
   let hp: number | undefined;
   const h = text.match(/\bHP\s*(\d{2,3})\b/i) ?? text.match(/\b(\d{2,3})\s*HP\b/i);
@@ -75,7 +87,7 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
       if (!tokens.includes(tk)) tokens.push(tk);
     }
   }
-  return { numbers, codes, tokens: tokens.slice(0, 6), hp, artist };
+  return { numbers, codes, tokens: tokens.slice(0, 6), hp, artist, dex, japanese, korean, han };
 }
 
 export type Hit = {
@@ -86,6 +98,14 @@ export type Hit = {
 const stripZeros = (n: string) => n.replace(/^0+(?=\d)/, "");
 
 /** Bewertet einen Treffer gegen das OCR-Ergebnis. Höher = wahrscheinlicher. */
+/** Welche Regionen kommen für den gelesenen Text in Frage? Asiatische Schriftzeichen => nur asiatische Karten, sonst nur internationale. */
+export function allowedRegions(p: Parsed): string[] {
+  if (p.japanese) return ["japan"];
+  if (p.korean) return ["korea"];
+  if (p.han) return ["china", "taiwan", "japan"];
+  return ["international"];
+}
+
 export function scoreHit(h: Hit, p: Parsed, matchedTokens: number): number {
   let s = matchedTokens * 3;
   const num = stripZeros(String(h.number ?? "").split("/")[0].toUpperCase());
@@ -97,6 +117,7 @@ export function scoreHit(h: Hit, p: Parsed, matchedTokens: number): number {
     const setCode = h.set_id.includes(":") ? h.set_id.split(":")[1].toUpperCase() : h.set_id.toUpperCase();
     if (c === setCode) s += 3;                    // Set-Kürzel auf der Karte
   }
+  if (p.japanese && h.region === "japan") s += 4;               // Kana im Text: japanische Karte bevorzugen
   if (p.artist && h.artist) {
     const a = h.artist.toLowerCase(), b = p.artist.toLowerCase();
     if (a === b || a.includes(b) || b.includes(a)) s += 4;     // gleicher Illustrator
