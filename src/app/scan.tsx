@@ -2,7 +2,7 @@ import { CameraView, useCameraPermissions } from "expo-camera";
 import { Stack, useRouter } from "expo-router";
 import React, { useRef, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
-import { Btn, CardImg, Field, H, Screen, Segmented, Sub } from "../components/ui";
+import { Btn, CardImg, Field, H, Screen, Sub } from "../components/ui";
 import { FormValues, ItemForm } from "../components/ItemForm";
 import type { Variant } from "../lib/data";
 import { Hit, OcrLine, Parsed, allowedRegions, parseOcr, scoreHit } from "../lib/ocrParser";
@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 // Texterkennung läuft nur auf dem Handy (nicht im Browser)
 const ML: any = Platform.OS === "web" ? null : require("@react-native-ml-kit/text-recognition");
 
-type Mode = "auto" | "zh" | "ko";
+type Mode = "auto";
 type Cand = { hit: Hit; score: number };
 
 const REGION_LANG: Record<string, string> = { japan: "ja", korea: "ko", china: "zh-cn", taiwan: "zh-tw" };
@@ -31,11 +31,10 @@ async function readText(uri: string, mode: Mode): Promise<OcrLine[]> {
     } catch { /* Schrift nicht verfügbar: ignorieren */ }
   };
   await run(); // Latein
-  if (mode === "auto") await run(T.JAPANESE);
-  // Vereinfachte chinesische Zeichen entdeckt (Japanisch-Erkennung allein liest sie schlecht): zusätzlich mit chinesischer Erkennung lesen
-  if (mode === "auto" && ((lines.map((l) => l.text).join(" ").match(/[梦动为张对战变击气电龙宠贝坛应时该们这图线级场备获过选择拥个术够习复费]/g) ?? []).length >= 2)) await run(T.CHINESE);
-  if (mode === "zh") await run(T.CHINESE);
-  if (mode === "ko") await run(T.KOREAN);
+  // Alle Schriften nacheinander lesen (Latein, Japanisch, Chinesisch, Koreanisch): eine Sprachauswahl ist nicht mehr nötig
+  await run(T.JAPANESE);
+  await run(T.CHINESE);
+  await run(T.KOREAN);
   const seen = new Set<string>();
   return lines.filter((l) => (seen.has(l.text) ? false : (seen.add(l.text), true)));
 }
@@ -107,7 +106,7 @@ export default function Scan() {
   const { active } = useApp();
   const [perm, askPerm] = useCameraPermissions();
   const cam = useRef<any>(null);
-  const [mode, setMode] = useState<Mode>("auto");
+  const mode: Mode = "auto";
   const [busy, setBusy] = useState(false);
   const [lines, setLines] = useState<string[] | null>(null);
   const [cands, setCands] = useState<Cand[]>([]);
@@ -216,7 +215,6 @@ export default function Scan() {
               <View style={{ flex: 1 }}><Btn kind="ghost" title="− Zoom" onPress={() => setZoom((z) => Math.max(0, Math.round((z - 0.1) * 10) / 10))} /></View>
               <View style={{ flex: 1 }}><Btn kind="ghost" title={`+ Zoom${zoom ? ` (${Math.round(zoom * 100)}%)` : ""}`} onPress={() => setZoom((z) => Math.min(0.6, Math.round((z + 0.1) * 10) / 10))} /></View>
             </View>
-            <Segmented value={mode} onChange={(v) => setMode(v as Mode)} options={[{ value: "auto", label: "EN/DE/JA" }, { value: "zh", label: "Chinesisch" }, { value: "ko", label: "Koreanisch" }]} />
             {!!msg && <Text style={{ color: t.sub, fontSize: 12, textAlign: "center" }}>{msg}</Text>}
             <Btn title={busy ? "Erkenne …" : "Karte fotografieren"} onPress={snap} busy={busy} />
           </View>

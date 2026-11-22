@@ -49,6 +49,7 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
     numbers.push({ num: left.replace(/^0+(?=\d)/, ""), total: m[2] });
   }
   for (const m of textNoHp.matchAll(/\b0*(\d{1,3})\s*\/\s*([A-Z]{1,5}(?:-[A-Z]{1,3})?-?P)\b/gi)) numbers.push({ num: m[1], total: m[2].toUpperCase() });
+  for (const m of textNoHp.matchAll(/\b[A-Z]?(\d{2,3}[A-Z])\b/g)) { const c = m[1]; if (!codes.includes(c)) codes.push(c); }   // Set-Kürzel wie "151C" (auch aus "G151C")
   for (const m of textNoHp.matchAll(/\b([A-Z]{2,5}\d{1,3}[a-zA-Z]?)\b/g)) {   // mindestens 2 Buchstaben: "G180" (Regelmarke/Energie + HP) ist kein Set-Kürzel
     const c = m[1].toUpperCase();
     if (/^(HP|KP|LV|PV)/.test(c)) continue;
@@ -70,8 +71,10 @@ export function parseOcr(input: (string | OcrLine)[]): Parsed {
   const kanaN = (text.match(/[぀-ヿ]/g) ?? []).length, hanN = (text.match(/[㐀-鿿]/g) ?? []).length;
   // Chinesisch: vereinfachte Zeichen ODER viele Han-Zeichen mit kaum Kana (echte japanische Karten bestehen großteils aus Kana)
   const chinese = simplified >= 2 || (hanN >= 12 && kanaN / (hanN + kanaN) < 0.12);
-  const japanese = !chinese && /[぀-ヿ]/.test(text);
-  const korean = /[가-힯]/.test(text);
+  const japanese = !chinese && !(hangulN >= 5 && hangulN >= kanaN) && /[぀-ヿ]/.test(text);
+  const hangulN = (text.match(/[가-힯]/g) ?? []).length;
+  // Koreanisch nur bei deutlich mehr Hangul als Kana (die Korea-Erkennung liefert bei anderen Karten manchmal Zufalls-Hangul)
+  const korean = hangulN >= 5 && hangulN >= kanaN && hangulN * 1.5 >= hanN;
   const han = chinese || (!japanese && !korean && /[㐀-鿿]/.test(text));
 
   let hp: number | undefined;
@@ -135,7 +138,7 @@ export function scoreHit(h: Hit, p: Parsed, matchedTokens: number): number {
   for (const c of p.codes) {
     if (num && c === num) s += 6;                 // z. B. XY202 = Kartennummer
     const setCode = h.set_id.includes(":") ? h.set_id.split(":")[1].toUpperCase() : h.set_id.toUpperCase();
-    if (c === setCode) s += 3;                    // Set-Kürzel auf der Karte
+    if (c === setCode) s += 12;                   // Set-Kürzel auf der Karte (z. B. 151C): sehr starkes Zeichen
   }
   // "No. 049" (Pokédex-Nummer unten rechts) gibt es nur auf alten Karten: moderne Karten (ab 2012, z. B. Full Art / Rainbow) stark abwerten
   if (p.dex && h.release_date && Number(String(h.release_date).slice(0, 4)) >= 2012) s -= 12;
