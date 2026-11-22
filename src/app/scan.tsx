@@ -5,7 +5,7 @@ import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "
 import { Btn, CardImg, Field, H, Screen, Sub } from "../components/ui";
 import { FormValues, ItemForm } from "../components/ItemForm";
 import type { Variant } from "../lib/data";
-import { Hit, OcrLine, Parsed, allowedRegions, parseOcr, scoreHit } from "../lib/ocrParser";
+import { Hit, OcrLine, Parsed, allowedRegions, exactName, parseOcr, scoreHit } from "../lib/ocrParser";
 import { cardName } from "../lib/labels";
 import { useApp } from "../lib/session";
 import { supabase } from "../lib/supabase";
@@ -94,7 +94,15 @@ async function findCandidates(p: Parsed): Promise<Cand[]> {
     const { data } = await supabase.from("cards").select("id, artist").in("id", ids);
     for (const r of (data ?? []) as any[]) { const f = found.get(r.id); if (f) f.hit.artist = r.artist; }
   }
-  return [...found.values()].map(({ hit, n }) => {
+  let list = [...found.values()];
+  // Ist der Name eindeutig gelesen (z. B. "Mew"), werden Treffer mit nur ähnlichem Namen ("Mewtu") ausgeblendet
+  const exact = list.filter(({ hit }) => exactName(hit, p.tokens.slice(0, 4)));
+  if (exact.length > 0) list = exact;
+  // Set-Kürzel auf der Karte (z. B. 151C) passt zu einem Treffer mit gleicher Nummer: Treffer aus anderen Sets mit gleicher Nummer ausblenden
+  const codeSet = (h: Hit) => (h.set_id.includes(":") ? h.set_id.split(":")[1] : h.set_id).toUpperCase();
+  const codeHit = list.filter(({ hit }) => numIds.has(hit.id) && p.codes.includes(codeSet(hit)));
+  if (codeHit.length > 0) list = list.filter(({ hit }) => !numIds.has(hit.id) || p.codes.includes(codeSet(hit)));
+  return list.map(({ hit, n }) => {
     const dexAndName = dexIds.has(hit.id) && p.tokens.slice(0, 4).some((tk) => nameIn(hit, tk));
     return { hit, score: scoreHit(hit, p, n) + (numIds.has(hit.id) ? 12 : 0) + (dexIds.has(hit.id) ? 6 : 0) + (dexAndName ? 40 : 0) + (dexAndName && !hit.number ? 8 : 0) };
   }).sort((a, b) => b.score - a.score).slice(0, 30);
@@ -122,7 +130,7 @@ export default function Scan() {
     const p = parseOcr(ol);
     const ls = ol.map((o) => o.text);
     setLines(ls);
-    setManualNum(p.dex ? String(p.dex) : (p.numbers[0] ? `${p.numbers[0].num}${p.numbers[0].total ? "/" + p.numbers[0].total : ""}` : (p.codes[0] ?? "")));
+    setManualNum(p.dex ? String(p.dex) : (p.numbers[0] ? `${p.numbers[0].num}${p.numbers[0].total ? "/" + p.numbers[0].total : ""}` : "")); // Codes werden nur zum Bewerten genutzt, nicht eingetragen (Texterkennung liefert dort oft Müll)
     setManual(p.tokens.slice(0, 1).join(" ")); // nur der größte Text (Name); mehrere Wörter würden die Suche einengen
     setCands(await findCandidates(p));
   };
@@ -156,8 +164,19 @@ export default function Scan() {
     const nameIds = new Set(nameHits.map((h) => h.id));
     const map = new Map<string, Hit>();
     [...nameHits, ...dexHits, ...numHits, ...codeHits].forEach((h) => { if (!map.has(h.id)) map.set(h.id, h); });
-    // Wenn Name UND Nummer passen, steht die Karte ganz oben; dann zählt auch das Veröffentlichungsjahr nicht mehr als Abzug
-    setCands([...map.values()].map((h) => {
+    let all = [...map.values()];
+    // Name genau gefunden (z. B. "Mew"): Treffer mit nur ähnlichem Namen ("Mewtu") ausblenden, es sei denn, sie passen über die Nummer
+    if (manual.trim().length >= 2) { const ex = all.filter((h) => exactName(h, [manual.trim()])); if (ex.length > 0) all = ex; }
+    // Set-Kürzel (z. B. 151C) passt zu einem Treffer mit gleicher Nummer: andere Sets mit gleicher Nummer ausblenden
+    const codeSet = (h: Hit) => (h.set_id.includes(":") ? h.set_id.split(":")[1] : h.set_id).toUpperCase();
+    const numSet = new Set(numHits.map((h) => h.id));
+    if (all.some((h) => numSet.has(h.id) && p.codes.includes(codeSet(h)))) all = all.filter((h) => !numSet.has(h.id) || p.codes.includes(codeSet(h)));
+    // Illustrator der Treffer nachladen, damit er beim Bewerten zählt
+    if (p.artist && all.length) {
+      const { data } = await supabase.from("cards").select("id, artist").in("id", all.slice(0, 400).map((h) => h.id));
+      for (const r of (data ?? []) as any[]) { const f = all.find((h) => h.id === r.id); if (f) f.artist = r.artist; }
+    }
+    setCands(all.map((h) => {
       const both = nrIds.has(h.id) && (nameIds.has(h.id) || nameIn(h, manual));
       // Karten ohne Nummer (z. B. Vending Machine, alte japanische Sets) tragen auch gedruckt keine Kartennummer: bei Pokédex-Suche leicht bevorzugen
       return { hit: h, score: scoreHit(h, p, 1) + (both ? 60 : 0) + (nrIds.has(h.id) ? 4 : 0) + (dexNum && both && !h.number ? 8 : 0) };
