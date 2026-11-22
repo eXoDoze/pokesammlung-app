@@ -30,6 +30,7 @@ export default function Suche() {
   const tileW = Math.floor((inner - GAP * (COLS - 1)) / COLS);
 
   const [q, setQ] = useState("");
+  const [nr, setNr] = useState(""); // Pokédex-Nr. (nur Ziffern), Kartennummer (123/456) oder Promo-Code (BW83)
   const [region, setRegion] = useState("all");
   const [rows, setRows] = useState<Hit[]>([]);
   const [total, setTotal] = useState(0);
@@ -38,9 +39,25 @@ export default function Suche() {
   const [err, setErr] = useState("");
   const reqId = useRef(0);
 
-  const load = useCallback(async (term: string, reg: string, offset: number) => {
+  const load = useCallback(async (term: string, reg: string, offset: number, num = "") => {
     const my = ++reqId.current;
     setBusy(true); setErr("");
+    if (num) {
+      // Suche über das Feld "Nummer"; ein zusätzlicher Name filtert die Treffer
+      const slash = num.match(/^0*(\d+)\s*\/\s*(\d+)$/);
+      let res: any;
+      if (/^\d{1,4}$/.test(num)) res = await supabase.rpc("find_cards_by_dex", { p_dex: Number(num), p_region: reg });
+      else if (slash) res = await supabase.rpc("find_cards_by_number", { p_num: slash[1], p_total: Number(slash[2]) });
+      else res = await supabase.rpc("search_cards", { p_q: num, p_region: reg, p_limit: PAGE, p_offset: 0 });
+      if (my !== reqId.current) return;
+      setBusy(false);
+      if (res.error) { setErr(res.error.message); return; }
+      let list = ((res.data ?? []) as Hit[]).filter((h) => reg === "all" || h.region === reg);
+      const w = term.toLowerCase();
+      if (w.length >= 2) list = list.filter((h: any) => [h.name_en, h.name_de, h.name_ja, h.name_ko, h.name_zh, h.set_name].some((x) => x && String(x).toLowerCase().includes(w)));
+      setRows(list); setTotal(list.length); setDone(true);
+      return;
+    }
     // Nummern wie "205/165" und Illustratoren werden serverseitig in search_cards gefunden (SQL 090)
     const { data, error } = await supabase.rpc("search_cards", { p_q: term, p_region: reg, p_limit: PAGE, p_offset: offset });
     if (my !== reqId.current) return; // veraltete Antwort
@@ -54,19 +71,21 @@ export default function Suche() {
 
   // Suche mit kurzer Verzögerung beim Tippen
   useEffect(() => {
-    const term = q.trim();
+    const term = q.trim(), num = nr.trim();
+    if (num) { const timer = setTimeout(() => load(term, region, 0, num), 350); return () => clearTimeout(timer); }
     if (term.length < 2) { reqId.current++; setRows([]); setTotal(0); setDone(false); setBusy(false); setErr(""); return; }
     const timer = setTimeout(() => load(term, region, 0), 350);
     return () => clearTimeout(timer);
-  }, [q, region]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [q, nr, region]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const more = () => { if (!busy && !done && rows.length > 0) load(q.trim(), region, rows.length); };
-  const hint = q.trim().length < 2 ? "Gib einen Pokémon-Namen, ein Set oder eine Nummer ein, z. B. Pikachu, 205/165 oder einen Illustrator wie Arita." : busy ? "Suche …" : err ? `Fehler: ${err}` : "Keine Karten gefunden.";
+  const more = () => { if (!busy && !done && rows.length > 0) load(q.trim(), region, rows.length, nr.trim()); };
+  const hint = q.trim().length < 2 && !nr.trim() ? "Gib einen Pokémon-Namen, ein Set oder eine Nummer ein, z. B. Pikachu, 205/165 oder einen Illustrator wie Arita." : busy ? "Suche …" : err ? `Fehler: ${err}` : "Keine Karten gefunden.";
 
   return (
     <Screen>
       <View style={{ padding: 16, paddingBottom: 8, maxWidth: 760, width: "100%", alignSelf: "center" }}>
         <Field label="" value={q} onChangeText={setQ} placeholder="Name, Nummer (205/165) oder Illustrator" autoCorrect={false} autoCapitalize="none" />
+        <Field label="" value={nr} onChangeText={setNr} placeholder="Nummer: Pokédex-Nr. (49), Kartennummer (123/456) oder Code (BW83)" autoCorrect={false} autoCapitalize="characters" />
         <Btn kind="ghost" title="📷 Karte scannen" onPress={() => router.push("/scan")} />
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
           <Dropdown label="Sprache" value={region} options={REGIONS} onChange={setRegion} />

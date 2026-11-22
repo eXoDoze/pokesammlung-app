@@ -225,7 +225,7 @@ export default function Scan() {
       {showResults && (
         <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
           <Field label="Suchbegriff (anpassen, wenn nichts passt)" value={manual} onChangeText={setManual} onSubmitEditing={manualSearch} autoCorrect={false} />
-          <Field label="Nummer (Pokédex-Nr. „No. 049“ → 49 · Kartennummer 123/456 · Promo-Code BW83)" value={manualNum} onChangeText={setManualNum} onSubmitEditing={manualSearch} keyboardType="number-pad" />
+          <Field label="Nummer (Pokédex-Nr. „No. 049“ → 49 · Kartennummer 123/456 · Promo-Code BW83)" value={manualNum} onChangeText={setManualNum} onSubmitEditing={manualSearch} />
           <Btn kind="ghost" title="Suchen" onPress={manualSearch} />
           {busy && <ActivityIndicator color={t.accent} style={{ marginVertical: 12 }} />}
           {!busy && cands.length === 0 && <Sub style={{ marginVertical: 12 }}>Keine passende Karte gefunden. Passe den Suchbegriff an oder fotografiere noch einmal.</Sub>}
