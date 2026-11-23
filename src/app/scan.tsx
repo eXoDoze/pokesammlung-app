@@ -150,7 +150,9 @@ export default function Scan() {
     const nr = manualNum.trim();
     const dexNum = /^\d{1,4}$/.test(nr) ? Number(nr) : undefined;
     const slash = nr.match(/^0*(\d+)\s*\/\s*(\d+)$/);
-    const code = !dexNum && !slash && /^[A-Za-z]{1,6}-?\d+[A-Za-z]?$/.test(nr) ? nr : "";
+    // auch Promo-Nummern mit Set-Kürzel: "091/PCG-P", "208/S-P", "091/pcg"
+    const promoSlash = /^[A-Za-z]{0,4}\d+[A-Za-z]{0,2}\s*\/\s*[A-Za-z][A-Za-z0-9-]*$/.test(nr);
+    const code = !dexNum && !slash && (/^[A-Za-z]{1,6}-?\d+[A-Za-z]?$/.test(nr) || promoSlash) ? nr.replace(/\s+/g, "") : "";
     if (manual.trim().length < 2 && !nr) return;
     setBusy(true);
     const p = parseOcr(lines ?? []);
@@ -256,7 +258,7 @@ export default function Scan() {
       {showResults && (
         <ScrollView contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
           <Field label="Suchbegriff (anpassen, wenn nichts passt)" value={manual} onChangeText={setManual} onSubmitEditing={manualSearch} autoCorrect={false} />
-          <Field label="Nummer (Pokédex-Nr. „No. 049“ → 49 · Kartennummer 123/456 · Promo-Code BW83)" value={manualNum} onChangeText={setManualNum} onSubmitEditing={manualSearch} />
+          <Field label="Nummer (Pokédex-Nr. „No. 049“ → 49 · Kartennummer 123/456 · Promo 091/PCG-P oder BW83)" value={manualNum} onChangeText={setManualNum} onSubmitEditing={manualSearch} />
           <Btn kind="ghost" title="Suchen" onPress={manualSearch} />
           {busy && <ActivityIndicator color={t.accent} style={{ marginVertical: 12 }} />}
           {!busy && cands.length === 0 && <Sub style={{ marginVertical: 12 }}>Keine passende Karte gefunden. Passe den Suchbegriff an oder fotografiere noch einmal.</Sub>}
