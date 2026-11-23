@@ -5,7 +5,7 @@ import { Btn, Chip, Dropdown, Field, H, Row, Screen, Sub } from "../components/u
 import { supabase } from "../lib/supabase";
 
 const REGIONS = [
-  { value: "international", label: "🌍 International (EN/DE)" },
+  { value: "international", label: "🌍 Europäisch (DE/EN/FR/ES/IT/PT)" },
   { value: "japan", label: "🇯🇵 Japanisch" },
   { value: "korea", label: "🇰🇷 Koreanisch" },
   { value: "china", label: "🇨🇳 Chinesisch (vereinfacht)" },

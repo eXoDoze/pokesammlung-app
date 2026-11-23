@@ -25,7 +25,7 @@ export default function CardVersionsScreen() {
       <Stack.Screen options={{ title: "Weitere Versionen" }} />
       <ScrollView contentContainerStyle={{ padding: 16, maxWidth: 760, width: "100%", alignSelf: "center" }}>
         <Txt bold style={{ fontSize: 18 }}>{title}</Txt>
-        <Sub>Dieselbe Karte als eigenes Produkt je Sprachgruppe (wie bei Cardmarket): International (Europa), Japanisch (inkl. Koreanisch) und Chinesisch. Jede Version hat eigene Sprachen und eigene Preise.</Sub>
+        <Sub>Dieselbe Karte als eigenes Produkt je Sprachgruppe (wie bei Cardmarket): Europäisch, Japanisch (inkl. Koreanisch) und Chinesisch. Jede Version hat eigene Sprachen und eigene Preise.</Sub>
         {versions === null && <Sub style={{ marginTop: 12 }}>Lade …</Sub>}
         {versions && versions.length === 0 && <Sub style={{ marginTop: 12 }}>Keine weiteren Versionen gefunden.</Sub>}
         {versions && versions.length > 0 && (

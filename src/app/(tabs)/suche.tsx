@@ -13,7 +13,7 @@ type Hit = {
 };
 const REGIONS = [
   { value: "all", label: "Alle Sprachen" },
-  { value: "international", label: "🌍 International (EN/DE)" },
+  { value: "international", label: "🌍 Europäisch (DE/EN/FR/ES/IT/PT)" },
   { value: "japan", label: "🇯🇵 Japanisch" },
   { value: "korea", label: "🇰🇷 Koreanisch" },
   { value: "china", label: "🇨🇳 Chinesisch (vereinfacht)" },

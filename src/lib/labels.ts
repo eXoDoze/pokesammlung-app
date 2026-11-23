@@ -27,7 +27,7 @@ export const REGION_LANGS: Record<string, string[]> = {
 };
 export const langsForRegion = (region?: string | null) => REGION_LANGS[region ?? "international"] ?? REGION_LANGS.international;
 export const REGION_TITLE: Record<string, string> = {
-  international: "International (Deutsch, Englisch, Französisch, Spanisch, Italienisch, Portugiesisch)",
+  international: "Europäisch (Deutsch, Englisch, Französisch, Spanisch, Italienisch, Portugiesisch)",
   japan: "Japanisch (Japanisch, Koreanisch)", korea: "Koreanisch", china: "Chinesisch (vereinfacht)", taiwan: "Taiwan (Chinesisch traditionell)",
 };
 // Grading-Firmen: die großen zuerst, danach weitere (Stand der Recherche), "Andere" = freie Eingabe

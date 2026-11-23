@@ -47,7 +47,7 @@ export default function TagScreen() {
       <View style={{ padding: 16, paddingBottom: 8 }}>
         <Txt bold>{busy ? "Lade …" : `${shown.length} Karten`}{rows.length >= 600 ? " (die ersten 600)" : ""}</Txt>
         <Row>
-          {[["all", "Alle"], ["international", "Englisch/Deutsch"], ["japan", "Japanisch"], ["korea", "Koreanisch"], ["china", "Chinesisch"]].map(([k, l]) => (
+          {[["all", "Alle"], ["international", "Europäisch"], ["japan", "Japanisch"], ["korea", "Koreanisch"], ["china", "Chinesisch"]].map(([k, l]) => (
             <Chip key={k} label={l} on={region === k} onPress={() => setRegion(k)} />
           ))}
         </Row>
