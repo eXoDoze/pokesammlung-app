@@ -5,15 +5,26 @@ import React, { useEffect, useRef } from "react";
 import { ActivityIndicator, Alert, View } from "react-native";
 import { AppProvider, useApp } from "../lib/session";
 import { useTheme } from "../lib/theme";
+import { warmUpScanServer } from "../lib/imageScan";
 
 // Beim Start nach App-Updates suchen, im Hintergrund laden und dann fragen: später oder jetzt neu starten.
 function UpdatePrompt() {
   const { isUpdatePending } = Updates.useUpdates();
   const asked = useRef(false);
   useEffect(() => {
+    warmUpScanServer(); // Bildserver beim App-Start wecken, damit er beim Scannen schon bereit ist
     if (!Updates.isEnabled) return;
     (async () => {
-      try { const r = await Updates.checkForUpdateAsync(); if (r.isAvailable) await Updates.fetchUpdateAsync(); } catch { /* offline o. ä.: ignorieren */ }
+      try {
+        const started = Date.now();
+        const r = await Updates.checkForUpdateAsync();
+        if (r.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          // Kommt das Update in den ersten Sekunden nach dem Start an, startet die App sofort neu (ein Start genügt).
+          // Später (z. B. mitten im Scannen) wird nur gefragt, siehe unten.
+          if (Date.now() - started < 15000) await Updates.reloadAsync();
+        }
+      } catch { /* offline o. ä.: ignorieren */ }
     })();
   }, []);
   useEffect(() => {
