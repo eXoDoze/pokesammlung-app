@@ -126,7 +126,7 @@ export default function CardScreen() {
     const liveAll = mineV.find((p) => p.condition === liveCond && p.seller_scope !== "DE");
     const liveDe = mineV.find((p) => p.condition === liveCond && p.seller_scope === "DE");
     const value = liveAll ? Number(liveAll.price) : low ?? minCond;
-    const label = liveAll ? `Günstigstes Angebot · ${condLabel} · alle Verkäufer` : low != null ? "Günstigster Preis · alle Zustände · alle Verkäufer" : minCond != null ? "Günstigster geladener Zustandspreis · alle Verkäufer" : "";
+    const label = liveAll ? `Günstigstes Angebot · ${condLabel} · alle Verkäufer` : low != null ? "Ab-Preis laut Preisliste · alle Zustände · alle Verkäufer" : minCond != null ? "Günstigster geladener Zustandspreis · alle Verkäufer" : "";
     return { row, rev, fits, trend, low, minCond, value, label, de: liveDe ? Number(liveDe.price) : null };
   };
   const hc = hv ? calc(hv) : null;
@@ -177,7 +177,11 @@ export default function CardScreen() {
                 <Txt bold style={{ fontSize: 40, letterSpacing: -1 }}>{eur(hc.value)}</Txt>
                 <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
                   <Stat label="Nur Deutschland" value={eur(hc.de)} />
-                  <Stat label="Trend (klein)" value={eur(hc.trend)} />
+                  <Stat label="Preis-Trend (Liste)" value={eur(hc.trend)} />
+                </View>
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
+                  <Stat label="Ø 7 Tage" value={eur(hc.row && hc.fits && !hc.rev ? hc.row.avg7 : null)} />
+                  <Stat label="Ø 30 Tage" value={eur(hc.row && hc.fits && !hc.rev ? hc.row.avg30 : null)} />
                 </View>
               </>
             ) : (
