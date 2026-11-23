@@ -3,7 +3,7 @@ import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Alert, Linking, Pressable, ScrollView, View } from "react-native";
 import { CardTags } from "../../components/CardTags";
-import { Btn, Chip, H, Panel, Pill, Row, Screen, Stat, Sub, Txt } from "../../components/ui";
+import { CardImg, Btn, Chip, H, Panel, Pill, Row, Screen, Stat, Sub, Txt } from "../../components/ui";
 import { CondPrice, PriceRow, Variant, jaLinkProduct, latestCondPrices, latestPrices, ITEM_SELECT, Item, priceGuideFits, valuesForItems, Value } from "../../lib/data";
 import { CONDITIONS, FINISH_LABEL, cardName, cardmarketUrl, cmLanguage, reverseFilterApplies, ebaySoldUrl, eur, isFirstEd, isShadowless, variantBadge, variantLabel, variantLabels, setTitle } from "../../lib/labels";
 import { useApp } from "../../lib/session";
@@ -154,7 +154,7 @@ export default function CardScreen() {
                 <Image source={{ uri: card.image_url }} style={{ width: 250, height: 350, shadowColor: "#000", shadowOpacity: 0.5, shadowRadius: 18, shadowOffset: { width: 0, height: 14 } }} contentFit="contain" />
                 {badge ? <View style={{ position: "absolute", left: 14, right: 14, bottom: 22, backgroundColor: "#d62b2b", borderRadius: 14, paddingVertical: 3, paddingHorizontal: 8, alignItems: "center" }}><Txt bold style={{ color: "#fff", fontSize: 11 }}>{badge}</Txt></View> : null}
               </View>
-            : <View style={{ width: 250, height: 350, alignItems: "center", justifyContent: "center" }}><Sub>Kein Bild vorhanden</Sub></View>}
+            : <CardImg uri={null} width={250} height={350} radius={12} />}
           <Txt bold style={{ fontSize: 26, marginTop: 14 }}>{cardName(card)}</Txt>
           {card.name_en && card.name_en !== cardName(card) ? <Sub>{card.name_en}</Sub> : null}
           <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", marginTop: 4, paddingHorizontal: 12 }}>
