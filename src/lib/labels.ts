@@ -87,6 +87,11 @@ export function reverseFilterApplies(finish: string | null | undefined, variants
   return finish === "reverse_holo" && (variants ?? []).some((v) => v.finish !== "reverse_holo");
 }
 
+// Sets, die es bei Cardmarket nur auf Englisch gibt (US-Promos). Für sie darf der Link nie nach Deutsch filtern,
+// sonst zeigt Cardmarket keine Angebote. Weitere Sets hier ergänzen (Set-Kennung wie in der Datenbank).
+export const ENGLISH_ONLY_SETS = new Set(["np", "basep"]);
+export const cmLanguage = (setId: string | null | undefined, code: string) => (setId && ENGLISH_ONLY_SETS.has(setId) ? "en" : code);
+
 // Links zu Cardmarket (alle Verkäufer) und eBay (verkaufte Artikel)
 export function cardmarketUrl(opts: {
   productId?: number | null; languageCode?: string; condition?: string;
