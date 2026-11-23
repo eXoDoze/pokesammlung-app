@@ -93,10 +93,15 @@ export function CardImg({ uri, width, height, label, sub, radius = 6, fit = "con
   if (uri && !failed) {
     return <Image source={{ uri }} onError={() => setFailed(true)} style={{ width: width as any, height: height as any, borderRadius: radius }} contentFit={fit} />;
   }
+  // Keine Bild-Datei: gezeichnete Kartenrückseite (Name klein darunter)
   return (
-    <View style={{ width: width as any, height: height as any, borderRadius: radius, backgroundColor: t.chip, alignItems: "center", justifyContent: "center", padding: 6 }}>
-      {label ? <Text numberOfLines={3} style={{ color: t.text, fontSize: 12, fontWeight: "700", textAlign: "center" }}>{label}</Text> : null}
-      {sub ? <Text numberOfLines={1} style={{ color: t.sub, fontSize: 11, marginTop: 2 }}>{sub}</Text> : null}
+    <View style={{ width: width as any, height: height as any, borderRadius: radius, backgroundColor: "#1f3a8a", borderColor: "#c9a227", borderWidth: 2, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+      <View style={{ width: "58%", aspectRatio: 1, borderRadius: 999, backgroundColor: "#f4f4f4", borderColor: "#10224f", borderWidth: 3, overflow: "hidden", alignItems: "center", justifyContent: "center" }}>
+        <View style={{ position: "absolute", top: 0, left: 0, right: 0, height: "50%", backgroundColor: "#d7263d" }} />
+        <View style={{ position: "absolute", top: "46%", left: 0, right: 0, height: "8%", backgroundColor: "#10224f" }} />
+        <View style={{ width: "26%", aspectRatio: 1, borderRadius: 999, backgroundColor: "#f4f4f4", borderColor: "#10224f", borderWidth: 3 }} />
+      </View>
+      {label ? <Text numberOfLines={2} style={{ position: "absolute", bottom: 4, left: 4, right: 4, color: "#ffffff", fontSize: 9, fontWeight: "700", textAlign: "center" }}>{label}</Text> : null}
     </View>
   );
 }

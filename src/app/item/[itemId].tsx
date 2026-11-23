@@ -5,7 +5,7 @@ import { Alert, Linking, Pressable, ScrollView, View } from "react-native";
 import { BinderZuweisen } from "../../components/BinderZuweisen";
 import { CardTags } from "../../components/CardTags";
 import { FormValues, ItemForm } from "../../components/ItemForm";
-import { Btn, Field, H, Panel, Pill, Screen, Segmented, Stat, Sub, Txt } from "../../components/ui";
+import { Btn, CardImg, Field, H, Panel, Pill, Screen, Segmented, Stat, Sub, Txt } from "../../components/ui";
 import { CondPrice, ITEM_SELECT, Item, PriceRow, Value, findCond, latestCondPrices, latestPrices, priceGuideFits, valuesForItems } from "../../lib/data";
 import { cardName, cardmarketUrl, cmLanguage, reverseFilterApplies, conditionLabel, deToIso, eur, isoToDe, setTitle, todayDe } from "../../lib/labels";
 import { jaLinkProduct, pickVariant } from "../../lib/data";
@@ -116,7 +116,7 @@ export default function ItemScreen() {
         <View style={{ alignItems: "center", borderRadius: 24, paddingVertical: 20, backgroundColor: `hsl(${hueFor(item.cards.set_id)}, 42%, 17%)` }}>
           {item.cards.image_url
             ? <Image source={{ uri: item.cards.image_url }} style={{ width: 240, height: 336 }} contentFit="contain" />
-            : <View style={{ width: 240, height: 336, alignItems: "center", justifyContent: "center" }}><Sub>Kein Bild vorhanden</Sub></View>}
+            : <CardImg uri={null} width={240} height={336} radius={12} label={cardName(item.cards)} />}
         </View>
         <Txt bold style={{ fontSize: 22, marginTop: 14 }}>{item.quantity > 1 ? `${item.quantity}× ` : ""}{cardName(item.cards)}</Txt>
         {item.cards.name_en && item.cards.name_en !== cardName(item.cards) ? <Sub>{item.cards.name_en}</Sub> : null}
