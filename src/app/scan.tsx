@@ -1,13 +1,13 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Stack, useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { Btn, CardImg, Field, H, Screen, Sub } from "../components/ui";
 import { FormValues, ItemForm } from "../components/ItemForm";
 import type { Variant } from "../lib/data";
 import { Hit, OcrLine, Parsed, allowedRegions, exactName, parseOcr, scoreHit } from "../lib/ocrParser";
 import { cardName } from "../lib/labels";
-import { ImageHit, identifyByImage, mergeImageHits } from "../lib/imageScan";
+import { ImageHit, identifyByImage, lastScanError, mergeImageHits, warmUpScanServer } from "../lib/imageScan";
 import { useApp } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
@@ -126,6 +126,9 @@ export default function Scan() {
   const [torch, setTorch] = useState(false);
   const [zoom, setZoom] = useState(0);
   const insets = useSafeAreaInsets();
+  const scanId = useRef(0); // verwirft Bild-Ergebnisse eines alten Fotos
+  const [serverMsg, setServerMsg] = useState("wird geweckt …");
+  useEffect(() => { warmUpScanServer().then(setServerMsg); }, []);
 
   const evaluate = async (ol: OcrLine[], imgs: ImageHit[] = []) => {
     const p = parseOcr(ol);
@@ -141,9 +144,18 @@ export default function Scan() {
     setBusy(true); setMsg("");
     try {
       const pic = await cam.current.takePictureAsync({ quality: 0.9 });
-      // Texterkennung und Bilderkennung (Bildserver) laufen gleichzeitig
-      const [ol, imgs] = await Promise.all([readText(pic.uri, mode), identifyByImage(pic.uri)]);
-      await evaluate(ol, imgs);
+      // Texterkennung und Bilderkennung (Bildserver) starten gleichzeitig; das Textergebnis erscheint sofort,
+      // die Bild-Treffer werden danach eingearbeitet, sobald der Server geantwortet hat
+      const id = ++scanId.current;
+      const imgsP = identifyByImage(pic.uri);
+      await evaluate(await readText(pic.uri, mode));
+      setBusy(false);
+      const imgs = await imgsP;
+      if (id === scanId.current) {
+        if (imgs.length) setCands((cur) => mergeImageHits(cur, imgs));
+        setServerMsg(lastScanError ? `Fehler: ${lastScanError}` : `ok (${imgs.length} Bild-Treffer)`);
+      }
+      return;
     } catch (e: any) { setMsg(e?.message ?? "Foto fehlgeschlagen"); }
     setBusy(false);
   };
@@ -240,6 +252,7 @@ export default function Scan() {
               <View style={{ flex: 1 }}><Btn kind="ghost" title={`+ Zoom${zoom ? ` (${Math.round(zoom * 100)}%)` : ""}`} onPress={() => setZoom((z) => Math.min(0.6, Math.round((z + 0.1) * 10) / 10))} /></View>
             </View>
             {!!msg && <Text style={{ color: t.sub, fontSize: 12, textAlign: "center" }}>{msg}</Text>}
+            <Text style={{ color: t.sub, fontSize: 11, textAlign: "center" }}>Bildserver: {serverMsg}</Text>
             <Btn title={busy ? "Erkenne …" : "Karte fotografieren"} onPress={snap} busy={busy} />
           </View>
         </View>
