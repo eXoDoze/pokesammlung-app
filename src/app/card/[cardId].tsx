@@ -74,7 +74,7 @@ export default function CardScreen() {
     setLiveMsg((m) => ({ ...m, [v.id]: "" }));
     try {
       const { data, error } = await supabase.functions.invoke("live-price", {
-        body: { card_id: card.id, variant_id: v.id, language: cmLanguage(card.set_id, liveLang), condition: liveCond, finish: v.finish, first_ed: isFirstEd(v.subtype) },
+        body: { card_id: card.id, variant_id: v.id, language: cmLanguage(card.set_id, liveLang), condition: liveCond, finish: v.finish, first_ed: isFirstEd(v.subtype, v.stamps) },
       });
       if (error) {
         let detail = "";
@@ -99,7 +99,7 @@ export default function CardScreen() {
     const v = card.card_variants[0];
     const { data, error } = await supabase.from("collection_items").insert({
       collection_id: active.id, card_id: card.id, status: "wishlist", quantity: 1, condition: "NM", language: lang, is_graded: false,
-      variant_id: v?.id ?? null, finish: v?.finish ?? "non_holo", is_first_edition: v ? isFirstEd(v.subtype) : false, is_shadowless: v ? isShadowless(v.subtype) : false,
+      variant_id: v?.id ?? null, finish: v?.finish ?? "non_holo", is_first_edition: v ? isFirstEd(v.subtype, v.stamps) : false, is_shadowless: v ? isShadowless(v.subtype) : false,
     }).select(ITEM_SELECT).single();
     if (error) return Alert.alert("Fehler", error.message);
     setWish(data as any as Item);
@@ -133,7 +133,7 @@ export default function CardScreen() {
   const vLabels = variantLabels(card.card_variants);
   const badge = hv ? variantBadge(hv) : "";
   // Europa-Karten: kein Sprachfilter, denn hier hat noch niemand eine Sprache gewählt
-  const urlOf = (v: Variant, extra: object = {}) => cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: card.sets?.region && card.sets.region !== "international" ? lang : undefined, reverse: reverseFilterApplies(v.finish, card.card_variants), firstEd: isFirstEd(v.subtype), directUrl: card.cardmarket_url, ...extra });
+  const urlOf = (v: Variant, extra: object = {}) => cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: card.sets?.region && card.sets.region !== "international" ? lang : undefined, reverse: reverseFilterApplies(v.finish, card.card_variants), firstEd: isFirstEd(v.subtype, v.stamps), directUrl: card.cardmarket_url, ...extra });
   const Line = ({ title, sub, onPress, open }: { title: string; sub?: string; onPress: () => void; open?: boolean }) => (
     <Pressable onPress={onPress} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 15, paddingHorizontal: 16, borderBottomColor: t.line, borderBottomWidth: 1 }}>
       <View style={{ flex: 1 }}><Txt bold>{title}</Txt>{sub ? <Sub>{sub}</Sub> : null}</View>

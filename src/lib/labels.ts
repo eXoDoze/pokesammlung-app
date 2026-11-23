@@ -45,7 +45,7 @@ export const cardName = (c: { name_de?: string | null; name_en?: string | null; 
   c.name_de || c.name_en || c.name_ja || c.name_zh || c.name_ko || "?";
 
 // Variante aus Bezeichnung (subtype / stamps) ableiten
-export const isFirstEd = (subtype?: string | null) => /first|1st/i.test(subtype ?? "");
+export const isFirstEd = (subtype?: string | null, stamps?: string[] | null) => /first|1st/i.test(subtype ?? "") || (stamps ?? []).some((s) => /first|1st/i.test(s));
 export const isShadowless = (subtype?: string | null) => /shadowless/i.test(subtype ?? "");
 
 // Standard-Druckvarianten (mit Holo/Non-Holo kombiniert) – alles andere (Metal Card, Oversized, Fullart …) ist eine eigene Variante

@@ -43,17 +43,15 @@ export default function Bestand() {
     });
     if (sort === "standard") return out;
     // Sortierung: Preis = der in der Zeile angezeigte Betrag (Preis x Anzahl, bei Verkauften der Erlös); Einträge ohne Preis stehen immer am Ende
-    const amount = (i: Item): number | null => {
-      if (view === "closed") return i.sold_price != null ? i.sold_price * i.quantity : null;
-      const v = vals.get(i.id); return v ? v.price * i.quantity : null;
+    const amount = (i: Item): number => {
+      if (view === "closed") return i.sold_price != null ? i.sold_price * i.quantity : 0;
+      const v = vals.get(i.id); return v ? v.price * i.quantity : 0;
     };
     const name = (i: Item) => cardName(i.cards) || "";
     return [...out].sort((a, b) => {
       if (sort === "az" || sort === "za") { const c = name(a).localeCompare(name(b), "de", { sensitivity: "base", numeric: true }); return sort === "az" ? c : -c; }
       const pa = amount(a), pb = amount(b);
-      if (pa == null && pb == null) return name(a).localeCompare(name(b), "de", { sensitivity: "base", numeric: true });
-      if (pa == null) return 1;
-      if (pb == null) return -1;
+      if (pa === pb) return name(a).localeCompare(name(b), "de", { sensitivity: "base", numeric: true });
       return sort === "preis_auf" ? pa - pb : pb - pa;
     });
   }, [items, q, vals, view, priceFilter, sort]);

@@ -81,7 +81,7 @@ export function pickVariant(item: Pick<Item, "variant_id" | "finish" | "is_first
   if (item.variant_id) { const v = variants.find((x) => x.id === item.variant_id); if (v) return v; }
   const same = variants.filter((v) => v.finish === item.finish);
   return (
-    same.find((v) => isFirstEd(v.subtype) === item.is_first_edition && isShadowless(v.subtype) === item.is_shadowless) ??
+    same.find((v) => isFirstEd(v.subtype, v.stamps) === item.is_first_edition && isShadowless(v.subtype) === item.is_shadowless) ??
     same[0] ?? variants[0]
   );
 }
@@ -120,7 +120,8 @@ export function valueOf(item: Item, prices: Map<number, PriceRow>, cond: CondPri
   const c = findCond(item, cond, "alle");
   if (c) return { price: Number(c.price), kind: "zustand", scope: "alle" };
   // Graded-Karten haben nur Zustandspreise
-  if (!item.is_graded) {
+  // 1st Edition: Cardmarkets Preisliste gilt für das ganze Produkt (alle Auflagen) -> hier keinen Ersatzpreis anzeigen
+  if (!item.is_graded && !item.is_first_edition) {
     const v = pickVariant(item, item.cards.card_variants ?? []);
     const row = v?.cardmarket_product_id && priceGuideFits(item.language, v) ? prices.get(Number(v.cardmarket_product_id)) : undefined;
     if (row) {

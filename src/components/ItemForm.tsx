@@ -24,7 +24,7 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
   const [variantId, setVariantId] = useState<string | null>(startVariant?.id ?? null);
   const [finish, setFinish] = useState<string>(initial?.finish ?? startVariant?.finish ?? "non_holo");
   // "set-logo" & Co. sind nur eine Bildmarkierung der Datenquelle, kein echter Stempel
-  const realStamp = (x?: string | null) => (x && !/^set[\s_-]?(logo|symbol)$/i.test(x.trim()) ? x : "");
+  const realStamp = (x?: string | null) => (x && !/^set[\s_-]?(logo|symbol)$/i.test(x.trim()) && !/first|1st/i.test(x) ? x : "");
   const [stamp, setStamp] = useState<string>(realStamp(initial?.stamp) || realStamp(startVariant?.stamps?.[0]));
   const labels = variantLabels(variants);
   const startLang = initial?.language ?? defaultLanguage ?? allowed[0];
@@ -55,11 +55,11 @@ export function ItemForm({ variants, initial, onSave, saveLabel, lockVariant, de
     setErr(""); setBusy(true);
     try {
       // Variante passend zur gewählten Foil-Art: die gewählte, sonst die erste mit gleicher Art, sonst keine (Preis kommt dann über die Art)
-      const used = v && v.finish === finish ? v : variants.find((x) => x.finish === finish && !isFirstEd(x.subtype) && !isShadowless(x.subtype)) ?? null;
+      const used = v && v.finish === finish ? v : variants.find((x) => x.finish === finish && !isFirstEd(x.subtype, x.stamps) && !isShadowless(x.subtype)) ?? null;
       await onSave({
         variant_id: used?.id ?? null,
         finish,
-        is_first_edition: used ? isFirstEd(used.subtype) : initial?.is_first_edition ?? false,
+        is_first_edition: used ? isFirstEd(used.subtype, used.stamps) : initial?.is_first_edition ?? false,
         is_shadowless: used ? isShadowless(used.subtype) : initial?.is_shadowless ?? false,
         stamp: stamp.trim() || null,
         language: lang, condition: graded ? "MT" : cond, is_graded: graded,
