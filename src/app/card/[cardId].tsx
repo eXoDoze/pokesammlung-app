@@ -132,7 +132,8 @@ export default function CardScreen() {
   const hc = hv ? calc(hv) : null;
   const vLabels = variantLabels(card.card_variants);
   const badge = hv ? variantBadge(hv) : "";
-  const urlOf = (v: Variant, extra: object = {}) => cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: card.sets?.region && card.sets.region !== "international" ? lang : undefined, // Europa-Karten: kein Sprachfilter, denn hier hat noch niemand eine Sprache gewählt reverse: reverseFilterApplies(v.finish, card.card_variants), firstEd: isFirstEd(v.subtype), directUrl: card.cardmarket_url, ...extra });
+  // Europa-Karten: kein Sprachfilter, denn hier hat noch niemand eine Sprache gewählt
+  const urlOf = (v: Variant, extra: object = {}) => cardmarketUrl({ productId: v.cardmarket_product_id, languageCode: card.sets?.region && card.sets.region !== "international" ? lang : undefined, reverse: reverseFilterApplies(v.finish, card.card_variants), firstEd: isFirstEd(v.subtype), directUrl: card.cardmarket_url, ...extra });
   const Line = ({ title, sub, onPress, open }: { title: string; sub?: string; onPress: () => void; open?: boolean }) => (
     <Pressable onPress={onPress} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 15, paddingHorizontal: 16, borderBottomColor: t.line, borderBottomWidth: 1 }}>
       <View style={{ flex: 1 }}><Txt bold>{title}</Txt>{sub ? <Sub>{sub}</Sub> : null}</View>
