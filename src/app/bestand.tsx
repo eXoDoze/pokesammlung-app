@@ -18,6 +18,7 @@ export default function Bestand() {
   const [busy, setBusy] = useState(false);
   const [priceFilter, setPriceFilter] = useState<"alle" | "ohne" | "hand">("alle");
   const [layout, setLayout] = useState<"liste" | "raster">("liste");
+  const [sort, setSort] = useState<"standard" | "az" | "za" | "preis_auf" | "preis_ab">("standard");
   const { width: winW } = useWindowDimensions();
   const GCOLS = 3, GGAP = 10;
   const gridW = Math.floor((Math.min(winW, 760) - 32 - GGAP * (GCOLS - 1)) / GCOLS);
@@ -32,7 +33,7 @@ export default function Bestand() {
 
   const list = useMemo(() => {
     const s = q.trim().toLowerCase();
-    return items.filter((i) => {
+    const out = items.filter((i) => {
       if (view === "owned" && priceFilter !== "alle") {
         const v = vals.get(i.id);
         if (priceFilter === "ohne" && v) return false;
@@ -40,7 +41,22 @@ export default function Bestand() {
       }
       return !s || [i.cards.name_en, i.cards.name_de, i.cards.name_ja, i.cards.number, i.cards.sets?.name_de, i.cards.sets?.name_en].some((x) => x?.toLowerCase().includes(s));
     });
-  }, [items, q, vals, view, priceFilter]);
+    if (sort === "standard") return out;
+    // Sortierung: Preis = der in der Zeile angezeigte Betrag (Preis x Anzahl, bei Verkauften der Erlös); Einträge ohne Preis stehen immer am Ende
+    const amount = (i: Item): number | null => {
+      if (view === "closed") return i.sold_price != null ? i.sold_price * i.quantity : null;
+      const v = vals.get(i.id); return v ? v.price * i.quantity : null;
+    };
+    const name = (i: Item) => cardName(i.cards) || "";
+    return [...out].sort((a, b) => {
+      if (sort === "az" || sort === "za") { const c = name(a).localeCompare(name(b), "de", { sensitivity: "base", numeric: true }); return sort === "az" ? c : -c; }
+      const pa = amount(a), pb = amount(b);
+      if (pa == null && pb == null) return name(a).localeCompare(name(b), "de", { sensitivity: "base", numeric: true });
+      if (pa == null) return 1;
+      if (pb == null) return -1;
+      return sort === "preis_auf" ? pa - pb : pb - pa;
+    });
+  }, [items, q, vals, view, priceFilter, sort]);
   const noPriceCount = useMemo(() => items.filter((i) => !vals.get(i.id)).length, [items, vals]);
 
   const sum = useMemo(() => {
@@ -69,6 +85,13 @@ export default function Bestand() {
             <Chip label="Preis von Hand" on={priceFilter === "hand"} onPress={() => setPriceFilter("hand")} />
           </Row>
         )}
+        <Row>
+          <Chip label="Sortierung: Standard" on={sort === "standard"} onPress={() => setSort("standard")} />
+          <Chip label="A–Z" on={sort === "az"} onPress={() => setSort("az")} />
+          <Chip label="Z–A" on={sort === "za"} onPress={() => setSort("za")} />
+          <Chip label="Preis ↑" on={sort === "preis_auf"} onPress={() => setSort("preis_auf")} />
+          <Chip label="Preis ↓" on={sort === "preis_ab"} onPress={() => setSort("preis_ab")} />
+        </Row>
         <Field label="" value={q} onChangeText={setQ} placeholder="In meiner Sammlung suchen: Name, Nummer oder Set" />
         <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 4 }}>
           <Sub>{sum.cnt} Karten · {list.length} Einträge{view === "closed" ? " · Erlös" : ""}</Sub>
