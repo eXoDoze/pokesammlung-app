@@ -177,9 +177,6 @@ export default function CardScreen() {
                 <Txt bold style={{ fontSize: 40, letterSpacing: -1 }}>{eur(hc.value)}</Txt>
                 <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
                   <Stat label="Nur Deutschland" value={eur(hc.de)} />
-                  <Stat label="Preis-Trend (Liste)" value={eur(hc.trend)} />
-                </View>
-                <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
                   <Stat label="Ø 7 Tage" value={eur(hc.row && hc.fits && !hc.rev ? hc.row.avg7 : null)} />
                   <Stat label="Ø 30 Tage" value={eur(hc.row && hc.fits && !hc.rev ? hc.row.avg30 : null)} />
                 </View>
