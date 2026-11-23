@@ -80,6 +80,13 @@ export function variantLabels<T extends { id: string; finish: string; subtype?: 
   return out;
 }
 
+// Den Cardmarket-Filter "Reverse Holo" gibt es nur bei Karten, die auch eine normale Version haben.
+// Existiert eine Karte ausschließlich als Reverse Holo (z. B. manche Promos), setzt Cardmarket den Filter nicht
+// und ein erzwungenes isReverseHolo=Y zeigt dann fälschlich keine Angebote.
+export function reverseFilterApplies(finish: string | null | undefined, variants: { finish: string }[] | null | undefined) {
+  return finish === "reverse_holo" && (variants ?? []).some((v) => v.finish !== "reverse_holo");
+}
+
 // Links zu Cardmarket (alle Verkäufer) und eBay (verkaufte Artikel)
 export function cardmarketUrl(opts: {
   productId?: number | null; languageCode?: string; condition?: string;

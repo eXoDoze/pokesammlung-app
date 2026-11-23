@@ -7,7 +7,7 @@ import { CardTags } from "../../components/CardTags";
 import { FormValues, ItemForm } from "../../components/ItemForm";
 import { Btn, Field, H, Panel, Pill, Screen, Segmented, Stat, Sub, Txt } from "../../components/ui";
 import { CondPrice, ITEM_SELECT, Item, PriceRow, Value, findCond, latestCondPrices, latestPrices, priceGuideFits, valuesForItems } from "../../lib/data";
-import { cardName, cardmarketUrl, conditionLabel, deToIso, eur, isoToDe, setTitle, todayDe } from "../../lib/labels";
+import { cardName, cardmarketUrl, reverseFilterApplies, conditionLabel, deToIso, eur, isoToDe, setTitle, todayDe } from "../../lib/labels";
 import { jaLinkProduct, pickVariant } from "../../lib/data";
 import { supabase } from "../../lib/supabase";
 import { hueFor } from "../../lib/theme";
@@ -48,7 +48,7 @@ export default function ItemScreen() {
   if (!item) return <Screen><Sub style={{ padding: 16 }}>Lade …</Sub></Screen>;
   const variants = item.cards.card_variants ?? [];
   const v = pickVariant(item, variants);
-  const urlOpts = { directUrl: item.cards.cardmarket_url, productId: v?.cardmarket_product_id ?? jaProduct, languageCode: item.language, condition: item.is_graded ? "MT" : item.condition, reverse: item.finish === "reverse_holo", firstEd: item.is_first_edition };
+  const urlOpts = { directUrl: item.cards.cardmarket_url, productId: v?.cardmarket_product_id ?? jaProduct, languageCode: item.language, condition: item.is_graded ? "MT" : item.condition, reverse: reverseFilterApplies(item.finish, variants), firstEd: item.is_first_edition };
   const url = cardmarketUrl(urlOpts);
   const urlDe = cardmarketUrl({ ...urlOpts, germanOnly: true });
   const rev = item.finish === "reverse_holo";
