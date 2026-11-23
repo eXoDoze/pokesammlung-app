@@ -7,6 +7,7 @@ import { FormValues, ItemForm } from "../components/ItemForm";
 import type { Variant } from "../lib/data";
 import { Hit, OcrLine, Parsed, allowedRegions, exactName, parseOcr, scoreHit } from "../lib/ocrParser";
 import { cardName } from "../lib/labels";
+import { ImageHit, identifyByImage, mergeImageHits } from "../lib/imageScan";
 import { useApp } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
@@ -126,13 +127,13 @@ export default function Scan() {
   const [zoom, setZoom] = useState(0);
   const insets = useSafeAreaInsets();
 
-  const evaluate = async (ol: OcrLine[]) => {
+  const evaluate = async (ol: OcrLine[], imgs: ImageHit[] = []) => {
     const p = parseOcr(ol);
     const ls = ol.map((o) => o.text);
     setLines(ls);
     setManualNum(p.dex ? String(p.dex) : (p.numbers[0] ? `${p.numbers[0].num}${p.numbers[0].total ? "/" + p.numbers[0].total : ""}` : "")); // Codes werden nur zum Bewerten genutzt, nicht eingetragen (Texterkennung liefert dort oft Müll)
     setManual(p.tokens.slice(0, 1).join(" ")); // nur der größte Text (Name); mehrere Wörter würden die Suche einengen
-    setCands(await findCandidates(p));
+    setCands(mergeImageHits(await findCandidates(p), imgs));
   };
 
   const snap = async () => {
@@ -140,7 +141,9 @@ export default function Scan() {
     setBusy(true); setMsg("");
     try {
       const pic = await cam.current.takePictureAsync({ quality: 0.9 });
-      await evaluate(await readText(pic.uri, mode));
+      // Texterkennung und Bilderkennung (Bildserver) laufen gleichzeitig
+      const [ol, imgs] = await Promise.all([readText(pic.uri, mode), identifyByImage(pic.uri)]);
+      await evaluate(ol, imgs);
     } catch (e: any) { setMsg(e?.message ?? "Foto fehlgeschlagen"); }
     setBusy(false);
   };
