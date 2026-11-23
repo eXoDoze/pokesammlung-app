@@ -7,7 +7,7 @@ import { FormValues, ItemForm } from "../components/ItemForm";
 import type { Variant } from "../lib/data";
 import { Hit, OcrLine, Parsed, allowedRegions, exactName, parseOcr, scoreHit } from "../lib/ocrParser";
 import { cardName } from "../lib/labels";
-import { ImageHit, identifyByImage, mergeImageHits, warmUpScanServer } from "../lib/imageScan";
+import { ImageHit, identifyByImage, lastScanError, mergeImageHits, warmUpScanServer } from "../lib/imageScan";
 import { useApp } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
@@ -127,7 +127,8 @@ export default function Scan() {
   const [zoom, setZoom] = useState(0);
   const insets = useSafeAreaInsets();
   const scanId = useRef(0); // verwirft Bild-Ergebnisse eines alten Fotos
-  useEffect(() => { warmUpScanServer(); }, []);
+  const [serverMsg, setServerMsg] = useState("wird geweckt …");
+  useEffect(() => { warmUpScanServer().then(setServerMsg); }, []);
 
   const evaluate = async (ol: OcrLine[], imgs: ImageHit[] = []) => {
     const p = parseOcr(ol);
@@ -150,7 +151,10 @@ export default function Scan() {
       await evaluate(await readText(pic.uri, mode));
       setBusy(false);
       const imgs = await imgsP;
-      if (imgs.length && id === scanId.current) setCands((cur) => mergeImageHits(cur, imgs));
+      if (id === scanId.current) {
+        if (imgs.length) setCands((cur) => mergeImageHits(cur, imgs));
+        setServerMsg(lastScanError ? `Fehler: ${lastScanError}` : `ok (${imgs.length} Bild-Treffer)`);
+      }
       return;
     } catch (e: any) { setMsg(e?.message ?? "Foto fehlgeschlagen"); }
     setBusy(false);
@@ -248,6 +252,7 @@ export default function Scan() {
               <View style={{ flex: 1 }}><Btn kind="ghost" title={`+ Zoom${zoom ? ` (${Math.round(zoom * 100)}%)` : ""}`} onPress={() => setZoom((z) => Math.min(0.6, Math.round((z + 0.1) * 10) / 10))} /></View>
             </View>
             {!!msg && <Text style={{ color: t.sub, fontSize: 12, textAlign: "center" }}>{msg}</Text>}
+            <Text style={{ color: t.sub, fontSize: 11, textAlign: "center" }}>Bildserver: {serverMsg}</Text>
             <Btn title={busy ? "Erkenne …" : "Karte fotografieren"} onPress={snap} busy={busy} />
           </View>
         </View>

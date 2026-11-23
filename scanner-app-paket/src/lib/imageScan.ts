@@ -8,15 +8,24 @@ export const SCAN_SERVER_URL = "https://pokekartendex-scanner-634153384015.europ
 export const SCAN_SERVER_TOKEN = "CWgh4ImVTBYLqY536_8oRrX2X5HE4RX7";
 
 /** Weckt den Bildserver auf (er schlaeft bei Nichtbenutzung), damit der erste Scan nicht lange wartet. */
-export function warmUpScanServer() {
-  if (!SCAN_SERVER_URL) return;
-  fetch(`${SCAN_SERVER_URL.replace(/\/$/, "")}/`).catch(() => {});
+export async function warmUpScanServer(): Promise<string> {
+  if (!SCAN_SERVER_URL) return "keine Adresse eingetragen";
+  try {
+    const res = await fetch(`${SCAN_SERVER_URL.replace(/\/$/, "")}/`);
+    return res.ok ? "bereit" : `Fehler ${res.status}`;
+  } catch (e: any) {
+    return `nicht erreichbar (${e?.message ?? "unbekannt"})`;
+  }
 }
+
+/** Letzter Fehler der Bilderkennung (leer = alles ok); wird im Scanner angezeigt. */
+export let lastScanError = "";
 
 export type ImageHit = { hit: Hit; similarity: number; sift: number };
 
 export async function identifyByImage(uri: string): Promise<ImageHit[]> {
-  if (!SCAN_SERVER_URL) return [];
+  lastScanError = "";
+  if (!SCAN_SERVER_URL) { lastScanError = "keine Adresse eingetragen"; return []; }
   try {
     const form = new FormData();
     form.append("image", { uri, name: "scan.jpg", type: "image/jpeg" } as any);
@@ -24,7 +33,7 @@ export async function identifyByImage(uri: string): Promise<ImageHit[]> {
     const timer = setTimeout(() => ctl.abort(), 60000); // erster Aufruf nach Pause: Server startet erst (bis ca. 30 s)
     const res = await fetch(`${SCAN_SERVER_URL.replace(/\/$/, "")}/identify?k=10`, { method: "POST", headers: { "x-app-token": SCAN_SERVER_TOKEN }, body: form, signal: ctl.signal });
     clearTimeout(timer);
-    if (!res.ok) return [];
+    if (!res.ok) { lastScanError = `Server antwortete mit ${res.status}`; return []; }
     const j = await res.json();
     const found: { card_id: string; similarity: number; sift?: number }[] = j.treffer ?? [];
     if (!found.length) return [];
@@ -42,7 +51,8 @@ export async function identifyByImage(uri: string): Promise<ImageHit[]> {
       });
     }
     return out;
-  } catch {
+  } catch (e: any) {
+    lastScanError = e?.name === "AbortError" ? "Zeitüberschreitung (Server startet noch?)" : (e?.message ?? "unbekannter Fehler");
     return [];
   }
 }
