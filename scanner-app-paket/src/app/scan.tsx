@@ -1,13 +1,13 @@
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { Stack, useRouter } from "expo-router";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from "react-native";
 import { Btn, CardImg, Field, H, Screen, Sub } from "../components/ui";
 import { FormValues, ItemForm } from "../components/ItemForm";
 import type { Variant } from "../lib/data";
 import { Hit, OcrLine, Parsed, allowedRegions, exactName, parseOcr, scoreHit } from "../lib/ocrParser";
 import { cardName } from "../lib/labels";
-import { ImageHit, identifyByImage, mergeImageHits } from "../lib/imageScan";
+import { ImageHit, identifyByImage, mergeImageHits, warmUpScanServer } from "../lib/imageScan";
 import { useApp } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { useTheme } from "../lib/theme";
@@ -126,6 +126,8 @@ export default function Scan() {
   const [torch, setTorch] = useState(false);
   const [zoom, setZoom] = useState(0);
   const insets = useSafeAreaInsets();
+  const scanId = useRef(0); // verwirft Bild-Ergebnisse eines alten Fotos
+  useEffect(() => { warmUpScanServer(); }, []);
 
   const evaluate = async (ol: OcrLine[], imgs: ImageHit[] = []) => {
     const p = parseOcr(ol);
@@ -141,9 +143,15 @@ export default function Scan() {
     setBusy(true); setMsg("");
     try {
       const pic = await cam.current.takePictureAsync({ quality: 0.9 });
-      // Texterkennung und Bilderkennung (Bildserver) laufen gleichzeitig
-      const [ol, imgs] = await Promise.all([readText(pic.uri, mode), identifyByImage(pic.uri)]);
-      await evaluate(ol, imgs);
+      // Texterkennung und Bilderkennung (Bildserver) starten gleichzeitig; das Textergebnis erscheint sofort,
+      // die Bild-Treffer werden danach eingearbeitet, sobald der Server geantwortet hat
+      const id = ++scanId.current;
+      const imgsP = identifyByImage(pic.uri);
+      await evaluate(await readText(pic.uri, mode));
+      setBusy(false);
+      const imgs = await imgsP;
+      if (imgs.length && id === scanId.current) setCands((cur) => mergeImageHits(cur, imgs));
+      return;
     } catch (e: any) { setMsg(e?.message ?? "Foto fehlgeschlagen"); }
     setBusy(false);
   };

@@ -7,6 +7,12 @@ import { supabase } from "./supabase";
 export const SCAN_SERVER_URL = "https://pokekartendex-scanner-634153384015.europe-west1.run.app";
 export const SCAN_SERVER_TOKEN = "CWgh4ImVTBYLqY536_8oRrX2X5HE4RX7";
 
+/** Weckt den Bildserver auf (er schlaeft bei Nichtbenutzung), damit der erste Scan nicht lange wartet. */
+export function warmUpScanServer() {
+  if (!SCAN_SERVER_URL) return;
+  fetch(`${SCAN_SERVER_URL.replace(/\/$/, "")}/`).catch(() => {});
+}
+
 export type ImageHit = { hit: Hit; similarity: number; sift: number };
 
 export async function identifyByImage(uri: string): Promise<ImageHit[]> {
