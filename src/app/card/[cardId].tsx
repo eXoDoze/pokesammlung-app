@@ -12,7 +12,7 @@ import { hueFor, useTheme } from "../../lib/theme";
 
 type Card = {
   id: string; number: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null;
-  rarity: string | null; image_url: string | null; set_id: string; cardmarket_url?: string | null;
+  level?: string | null; rarity: string | null; image_url: string | null; set_id: string; cardmarket_url?: string | null;
   sets: { name_en: string | null; name_de: string | null; name_ja: string | null; region: string } | null;
   card_variants: Variant[];
 };
@@ -42,7 +42,7 @@ export default function CardScreen() {
   useEffect(() => {
     (async () => {
       const { data } = await supabase.from("cards")
-        .select("id,number,name_en,name_de,name_ja,name_ko,name_zh,rarity,image_url,set_id,cardmarket_url,sets(name_en,name_de,name_ja,name_ko,name_zh,region),card_variants(id,finish,subtype,stamps,cardmarket_product_id,asia_product)")
+        .select("id,number,level,name_en,name_de,name_ja,name_ko,name_zh,rarity,image_url,set_id,cardmarket_url,sets(name_en,name_de,name_ja,name_ko,name_zh,region),card_variants(id,finish,subtype,stamps,cardmarket_product_id,asia_product)")
         .eq("id", id).single();
       const c = data as any as Card | null;
       setCard(c);
@@ -160,6 +160,7 @@ export default function CardScreen() {
           <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "center", marginTop: 4, paddingHorizontal: 12 }}>
             <Pressable onPress={() => router.push(`/set/${encodeURIComponent(card.set_id)}`)}><Pill label={`${setName} ›`} tone="accent" /></Pressable>
             {card.number ? <Pill label={`#${card.number}`} /> : null}
+            {card.level ? <Pill label={`Lv.${card.level}`} /> : null}
             {card.rarity && card.rarity !== "None" ? <Pill label={card.rarity} /> : null}
             <CardTags card={card} />
           </View>
