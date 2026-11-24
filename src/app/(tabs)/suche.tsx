@@ -38,6 +38,7 @@ export default function Suche() {
   const [done, setDone] = useState(false);
   const [err, setErr] = useState("");
   const reqId = useRef(0);
+  const [levels, setLevels] = useState<Record<string, string>>({});
 
   const load = useCallback(async (term: string, reg: string, offset: number, num = "") => {
     const my = ++reqId.current;
@@ -78,6 +79,19 @@ export default function Suche() {
     return () => clearTimeout(timer);
   }, [q, nr, region]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Level der angezeigten Karten nachladen (die Suchfunktion liefert es nicht mit)
+  useEffect(() => {
+    const need = rows.map((h) => h.id).filter((i) => !(i in levels)).slice(0, 100);
+    if (!need.length) return;
+    (async () => {
+      const { data } = await supabase.from("cards").select("id,level").in("id", need);
+      const add: Record<string, string> = {};
+      for (const id of need) add[id] = "";
+      for (const r of (data ?? []) as any[]) if (r.level) add[r.id] = String(r.level);
+      setLevels((c) => ({ ...c, ...add }));
+    })();
+  }, [rows, levels]);
+
   const more = () => { if (!busy && !done && rows.length > 0) load(q.trim(), region, rows.length, nr.trim()); };
   const hint = q.trim().length < 2 && !/^v$/i.test(q.trim()) && !nr.trim() ? "Gib einen Pokémon-Namen, ein Set oder eine Nummer ein, z. B. Pikachu, 205/165 oder einen Illustrator wie Arita." : busy ? "Suche …" : err ? `Fehler: ${err}` : "Keine Karten gefunden.";
 
@@ -110,7 +124,7 @@ export default function Suche() {
                 <View style={{ padding: 7 }}>
                   <Text numberOfLines={1} style={{ color: t.text, fontSize: 12, fontWeight: "700" }}>{cardName(h)}</Text>
                   <Text numberOfLines={1} style={{ color: t.sub, fontSize: 10.5, marginTop: 1 }}>{h.set_name}</Text>
-                  <Text numberOfLines={1} style={{ color: t.sub, fontSize: 10.5 }}>{[h.number ? `#${h.number}` : null, h.rarity].filter(Boolean).join(" · ")}</Text>
+                  <Text numberOfLines={1} style={{ color: t.sub, fontSize: 10.5 }}>{[h.number ? `#${h.number}` : null, h.rarity, levels[h.id] ? `Lv.${levels[h.id]}` : null].filter(Boolean).join(" · ")}</Text>
                 </View>
               </View>
             </Pressable>

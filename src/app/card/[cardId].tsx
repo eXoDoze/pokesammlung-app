@@ -10,6 +10,8 @@ import { useApp } from "../../lib/session";
 import { supabase } from "../../lib/supabase";
 import { hueFor, useTheme } from "../../lib/theme";
 
+const datum = (s?: string | null) => (s ? new Date(s).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "");
+
 type Card = {
   id: string; number: string; name_en: string | null; name_de: string | null; name_ja: string | null; name_ko?: string | null; name_zh?: string | null;
   level?: string | null; rarity: string | null; image_url: string | null; set_id: string; cardmarket_url?: string | null;
@@ -127,7 +129,7 @@ export default function CardScreen() {
     const liveDe = mineV.find((p) => p.condition === liveCond && p.seller_scope === "DE");
     const value = liveAll ? Number(liveAll.price) : low ?? minCond;
     const label = liveAll ? `Günstigstes Angebot · ${condLabel} · alle Verkäufer` : low != null ? "Ab-Preis laut Preisliste · alle Zustände · alle Verkäufer" : minCond != null ? "Günstigster geladener Zustandspreis · alle Verkäufer" : "";
-    return { row, rev, fits, trend, low, minCond, value, label, de: liveDe ? Number(liveDe.price) : null };
+    return { row, rev, fits, trend, low, minCond, value, label, de: liveDe ? Number(liveDe.price) : null, at: liveAll ? liveAll.fetched_at : null };
   };
   const hc = hv ? calc(hv) : null;
   const vLabels = variantLabels(card.card_variants);
@@ -176,6 +178,7 @@ export default function CardScreen() {
               <>
                 <Sub>{hc.label}</Sub>
                 <Txt bold style={{ fontSize: 40, letterSpacing: -1 }}>{eur(hc.value)}</Txt>
+                {hc.at ? <Sub>Preisstand: {datum(hc.at)}</Sub> : null}
                 <View style={{ flexDirection: "row", gap: 8, marginTop: 8 }}>
                   <Stat label="Nur Deutschland" value={eur(hc.de)} />
                   <Stat label="Ø 7 Tage" value={eur(hc.row && hc.fits && !hc.rev ? hc.row.avg7 : null)} />
@@ -243,7 +246,7 @@ export default function CardScreen() {
                       <Txt bold>{vLabels.get(v.id) ?? variantLabel(v)}</Txt>
                       <Sub>Günstigster Preis (alle Zustände): {eur(c.low ?? c.minCond)}{c.trend != null ? ` · Trend: ${eur(c.trend)}` : ""}</Sub>
                       {rows.length ? <Sub style={{ marginTop: 4 }}>Je Zustand: alle Verkäufer · nur Deutschland</Sub> : <Sub style={{ marginTop: 4 }}>Noch keine Zustandspreise geladen.</Sub>}
-                      {rows.map((r) => <Sub key={r.cc.code}>{r.cc.label}: {eur(r.all ? Number(r.all.price) : null)} · {eur(r.de ? Number(r.de.price) : null)}</Sub>)}
+                      {rows.map((r) => <Sub key={r.cc.code}>{r.cc.label}: {eur(r.all ? Number(r.all.price) : null)} · {eur(r.de ? Number(r.de.price) : null)}{datum(r.all?.fetched_at ?? r.de?.fetched_at) ? ` · Stand ${datum(r.all?.fetched_at ?? r.de?.fetched_at)}` : ""}</Sub>)}
                     </View>
                   );
                 })}
