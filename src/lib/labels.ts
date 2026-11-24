@@ -76,9 +76,15 @@ export function variantLabels<T extends { id: string; finish: string; subtype?: 
     const pretty = (x: string) => (isLogo(x) ? "Set-Stempel" : x.replace(/[-_]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()));
     const stampOf = (v: T) => (v.stamps ?? []).map(pretty).join(", ");
     const logoRev = (v: T) => v.finish === "reverse_holo" && (v.stamps ?? []).length > 0 && (v.stamps ?? []).every(isLogo);
-    if (g.length === 1) { out.set(g[0].id, logoRev(g[0]) ? `${l} (Set-Stempel)` : l); continue; }
-    if (new Set(g.map(stampOf)).size === g.length) { g.forEach((v) => out.set(v.id, logoRev(v) ? `${l} (Set-Stempel)` : stampOf(v) ? `${l} · ${stampOf(v)}` : l)); continue; }
-    [...g].sort((a, b) => (a.cardmarket_product_id ?? 0) - (b.cardmarket_product_id ?? 0)).forEach((v, i) => out.set(v.id, `${l} · Version ${i + 1}`));
+    const nameOf = (v: T) => (logoRev(v) ? `${l} (Set-Stempel)` : stampOf(v) ? `${l} · ${stampOf(v)}` : l);
+    if (g.length === 1) { out.set(g[0].id, nameOf(g[0])); continue; }
+    // Gleiche Stempel gruppieren: Varianten mit eigenem Stempel behalten ihren Namen, nur echte Doppelgänger werden nummeriert
+    const byStamp = new Map<string, T[]>();
+    for (const v of g) { const k = stampOf(v); if (!byStamp.has(k)) byStamp.set(k, []); byStamp.get(k)!.push(v); }
+    for (const sub of byStamp.values()) {
+      if (sub.length === 1) { out.set(sub[0].id, nameOf(sub[0])); continue; }
+      [...sub].sort((a, b) => (a.cardmarket_product_id ?? 0) - (b.cardmarket_product_id ?? 0)).forEach((v, i) => out.set(v.id, `${nameOf(v)} · Version ${i + 1}`));
+    }
   }
   return out;
 }
