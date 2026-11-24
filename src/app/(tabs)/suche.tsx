@@ -73,13 +73,13 @@ export default function Suche() {
   useEffect(() => {
     const term = q.trim(), num = nr.trim();
     if (num) { const timer = setTimeout(() => load(term, region, 0, num), 350); return () => clearTimeout(timer); }
-    if (term.length < 2) { reqId.current++; setRows([]); setTotal(0); setDone(false); setBusy(false); setErr(""); return; }
+    if (term.length < 2 && !/^v$/i.test(term)) { reqId.current++; setRows([]); setTotal(0); setDone(false); setBusy(false); setErr(""); return; }
     const timer = setTimeout(() => load(term, region, 0), 350);
     return () => clearTimeout(timer);
   }, [q, nr, region]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const more = () => { if (!busy && !done && rows.length > 0) load(q.trim(), region, rows.length, nr.trim()); };
-  const hint = q.trim().length < 2 && !nr.trim() ? "Gib einen Pokémon-Namen, ein Set oder eine Nummer ein, z. B. Pikachu, 205/165 oder einen Illustrator wie Arita." : busy ? "Suche …" : err ? `Fehler: ${err}` : "Keine Karten gefunden.";
+  const hint = q.trim().length < 2 && !/^v$/i.test(q.trim()) && !nr.trim() ? "Gib einen Pokémon-Namen, ein Set oder eine Nummer ein, z. B. Pikachu, 205/165 oder einen Illustrator wie Arita." : busy ? "Suche …" : err ? `Fehler: ${err}` : "Keine Karten gefunden.";
 
   return (
     <Screen>
