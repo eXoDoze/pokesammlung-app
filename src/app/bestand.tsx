@@ -6,6 +6,7 @@ import { Item, Value, fetchItems, valuesForItems } from "../lib/data";
 import { FINISH_LABEL, cardName, conditionLabel, eur, isoToDe, setTitle } from "../lib/labels";
 import { useApp } from "../lib/session";
 import { useTheme } from "../lib/theme";
+import { supabase } from "../lib/supabase";
 
 export default function Bestand() {
   const params = useLocalSearchParams<{ view?: string }>();
@@ -14,6 +15,7 @@ export default function Bestand() {
   const t = useTheme();
   const [items, setItems] = useState<Item[]>([]);
   const [vals, setVals] = useState<Map<string, Value>>(new Map());
+  const [levels, setLevels] = useState<Record<string, string>>({});
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const [priceFilter, setPriceFilter] = useState<"alle" | "ohne" | "hand">("alle");
@@ -27,7 +29,18 @@ export default function Bestand() {
   const load = useCallback(async () => {
     if (!active) return;
     setBusy(true);
-    try { const it = await fetchItems(active.id, view === "owned" ? ["owned"] : ["sold", "traded"]); setItems(it); setVals(await valuesForItems(it)); } finally { setBusy(false); }
+    try {
+      const it = await fetchItems(active.id, view === "owned" ? ["owned"] : ["sold", "traded"]);
+      setItems(it); setVals(await valuesForItems(it));
+      // Level der Karten nachladen (steht nicht in der Sammlungsabfrage)
+      const ids = [...new Set(it.map((x) => x.card_id))];
+      const lv: Record<string, string> = {};
+      for (let k = 0; k < ids.length; k += 100) {
+        const { data } = await supabase.from("cards").select("id,level").in("id", ids.slice(k, k + 100));
+        for (const r of (data ?? []) as any[]) if (r.level) lv[r.id] = String(r.level);
+      }
+      setLevels(lv);
+    } finally { setBusy(false); }
   }, [active, view]);
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
@@ -135,6 +148,7 @@ export default function Bestand() {
                     <Pill label={FINISH_LABEL[i.finish] ?? i.finish} />
                     <Pill label={i.is_graded ? `${i.grading_company} ${i.grade}` : conditionLabel(i.condition)} tone="accent" />
                     <Pill label={i.language.toUpperCase()} />
+                    {levels[i.card_id] ? <Pill label={`Lv.${levels[i.card_id]}`} /> : null}
                     {i.is_first_edition ? <Pill label="1st Edition" tone="accent" /> : null}
                     {i.is_shadowless ? <Pill label="Shadowless" /> : null}
                     {i.stamp ? <Pill label={i.stamp} /> : null}
